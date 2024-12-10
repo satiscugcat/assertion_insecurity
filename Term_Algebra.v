@@ -24,7 +24,7 @@ Inductive Term: Type :=
 Definition TermSet: Type := Ensemble Term.
 
 
-Inductive dy : TermSet -> Term -> Prop:=
+Inductive dy : TermSet -> Term -> Type:=
 | ax {X: TermSet} {t: Term} (inH: In Term X t) : dy X t
 | pk {X: TermSet} {k: Name} (kH: dy X (PrivKeyTerm k)) : dy X (PubKeyTerm k)
                                                            
@@ -38,8 +38,8 @@ Inductive dy : TermSet -> Term -> Prop:=
 | adec {X: TermSet} {t: Term} {k: Name} (encH: dy X (PubEncTerm t k)) (keyH: dy X (PrivKeyTerm k)): dy X t
 | aenc {X: TermSet} {t: Term} {k: Name} (tH: dy X t) (kH: dy X (PubKeyTerm k)) : dy X (PubEncTerm t k).
 
-Theorem TermMonotonicity: forall (X Y: TermSet) (t: Term), (Included Term X Y) /\ (dy X t) -> (dy Y t).
-Proof. intros X Y t. intros [subset dyxt]. induction dyxt.
+Theorem TermMonotonicity: forall (X Y: TermSet) (t: Term), (dy X t) -> (Included Term X Y) -> (dy Y t).
+Proof. intros X Y t. intros dyxt subset. induction dyxt.
        - subst. apply (ax (subset t inH)).
        - apply  (pk (IHdyxt subset)).
        - apply (splitL (IHdyxt subset)).
@@ -51,7 +51,6 @@ Proof. intros X Y t. intros [subset dyxt]. induction dyxt.
        - apply (aenc (IHdyxt1 subset) (IHdyxt2 subset)).
 Qed. 
 
-(**
 Fixpoint isNormal {X: TermSet} {t: Term} (proof: dy X t) : bool := 
   match proof with
   | pair p1 p2 => andb (isNormal p1) (isNormal p2)
@@ -59,46 +58,48 @@ Fixpoint isNormal {X: TermSet} {t: Term} (proof: dy X t) : bool :=
   | aenc pt pK => andb (isNormal pt) (isNormal pK)
   | pk pK => isNormal pK
                       
-  | ax _ => True
+  | ax _ => true
   | splitL p =>
       andb (isNormal p)
         (match p return bool with
-         | pair _ _ => False
-         | senc _ _ => False
-         | aenc _ _ => False
-         | pk _ => False
-  
+         | pair _ _ => false
+         | senc _ _ => false
+         | aenc _ _ => false
+         | pk _ => false
+         | splitL _ => true
+         | splitR _ => true
+         | sdec _ _ => true
+         | adec _ _ => true
+         | ax _ => true
+         end)
   | splitR p =>
       andb (isNormal p)
-        (match p with | pair _ _ => False
-                 | senc _ _ => False
-                 | aenc _ _ => False
-                 | pk _ => False
-                 | _ => True
+        (match p with | pair _ _ => false
+                 | senc _ _ => false
+                 | aenc _ _ => false
+                 | pk _ => false
+                 | _ => true
          end)
   | sdec pe pK =>
       andb (isNormal pe)
         (andb (isNormal pK)
-           (match pe with | pair _ _ => False
-                     | senc _ _ => False
-                     | aenc _ _ => False
-                     | pk _ => False
-                     | _ => True
+           (match pe with | pair _ _ => false
+                     | senc _ _ => false
+                     | aenc _ _ => false
+                     | pk _ => false
+                     | _ => true
             end))
   | adec pe pK =>
-      andb (isNormal pe)
-           (andb (isNormal pK) (match pe with | pair _ _ => False
-                                         | senc _ _ => False
-                                         | aenc _ _ => False
-                                         | pk _ => False
-                                         | _ => True end))
+        (andb (isNormal pe)
+           (andb (isNormal pK) (match pe with | pair _ _ => false
+                                         | senc _ _ => false
+                                         | aenc _ _ => false
+                                         | pk _ => false
+                                         | _ => true end)))
   end.
-**)
 
 
-
-
-
+Theorem Normalisation :forall (X: TermSet) (t: Term) (proof: dy X t), exists (normal_proof: dy X t), (isNormal normal_proof) = true. Admitted.
 Fixpoint nPred (n: nat) : Type :=
   match n with
   | O => Prop
