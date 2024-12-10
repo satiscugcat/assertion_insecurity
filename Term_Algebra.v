@@ -49,47 +49,51 @@ Proof. intros X Y t. intros [subset dyxt]. induction dyxt.
        - apply (senc (IHdyxt1 subset) (IHdyxt2 subset)).
        - apply (adec (IHdyxt1 subset) (IHdyxt2 subset)).
        - apply (aenc (IHdyxt1 subset) (IHdyxt2 subset)).
-Qed.
+Qed. 
 
-
-Fixpoint isNormal {X: TermSet} {t: Term} (proof: dy X t) : bool (** := 
+(**
+Fixpoint isNormal {X: TermSet} {t: Term} (proof: dy X t) : bool := 
   match proof with
   | pair p1 p2 => andb (isNormal p1) (isNormal p2)
   | senc pt pK => andb (isNormal pt) (isNormal pK)
   | aenc pt pK => andb (isNormal pt) (isNormal pK)
   | pk pK => isNormal pK
                       
-  | ax _ => true
-  | splitL p =>  andb (isNormal p) (match p with | pair _ _ => false
-                                           | senc _ _ => false
-                                           | aenc _ _ => false
-                                           | pk _ => false
-                                         
-                                           | splitL _ => true
-                                           | splitR _ => true
-                                           | sdec _ _ => true
-                                           | adec _ _ => true
-                                                           | ax _ => true
-                                   end)
-  | splitR p => andb (isNormal p) (match p with | pair _ _ => false
-                                           | senc _ _ => false
-                                           | aenc _ _ => false
-                                           | pk _ => false
-                                           | _ => true
-                                   end)
-  | sdec pe pK => andb (isNormal pe) (andb (isNormal pK) (match pe with | pair _ _ => false
-                                                                   | senc _ _ => false
-                                                                   | aenc _ _ => false
-                                                                   | pk _ => false
-                                                                   | _ => true
-                                                          end))
-  | adec pe pK => andb andb (isNormal pe) (andb (isNormal pK) (match pe with | pair _ _ => false
-                                                                        | senc _ _ => false
-                                                                        | aenc _ _ => false
-                                                                        | pk _ => false
-                                                                        | _ => true end))
-end **). Admitted.
-
+  | ax _ => True
+  | splitL p =>
+      andb (isNormal p)
+        (match p return bool with
+         | pair _ _ => False
+         | senc _ _ => False
+         | aenc _ _ => False
+         | pk _ => False
+  
+  | splitR p =>
+      andb (isNormal p)
+        (match p with | pair _ _ => False
+                 | senc _ _ => False
+                 | aenc _ _ => False
+                 | pk _ => False
+                 | _ => True
+         end)
+  | sdec pe pK =>
+      andb (isNormal pe)
+        (andb (isNormal pK)
+           (match pe with | pair _ _ => False
+                     | senc _ _ => False
+                     | aenc _ _ => False
+                     | pk _ => False
+                     | _ => True
+            end))
+  | adec pe pK =>
+      andb (isNormal pe)
+           (andb (isNormal pK) (match pe with | pair _ _ => False
+                                         | senc _ _ => False
+                                         | aenc _ _ => False
+                                         | pk _ => False
+                                         | _ => True end))
+  end.
+**)
 
 
 
