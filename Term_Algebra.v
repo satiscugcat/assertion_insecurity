@@ -52,7 +52,7 @@ Proof. intros X Y t. intros [subset dyxt]. induction dyxt.
 Qed.
 
 
-Fixpoint isNormal {X: TermSet} {t: Term} (proof: dy X t) : bool (** :=
+Fixpoint isNormal {X: TermSet} {t: Term} (proof: dy X t) : bool (** := 
   match proof with
   | pair p1 p2 => andb (isNormal p1) (isNormal p2)
   | senc pt pK => andb (isNormal pt) (isNormal pK)
@@ -60,7 +60,7 @@ Fixpoint isNormal {X: TermSet} {t: Term} (proof: dy X t) : bool (** :=
   | pk pK => isNormal pK
                       
   | ax _ => true
-  | splitL p =>  (isNormal p) (match p with | pair _ _ => false
+  | splitL p =>  andb (isNormal p) (match p with | pair _ _ => false
                                            | senc _ _ => false
                                            | aenc _ _ => false
                                            | pk _ => false
@@ -71,7 +71,7 @@ Fixpoint isNormal {X: TermSet} {t: Term} (proof: dy X t) : bool (** :=
                                            | adec _ _ => true
                                                            | ax _ => true
                                    end)
-  | splitR p =>  (isNormal p) (match p with | pair _ _ => false
+  | splitR p => andb (isNormal p) (match p with | pair _ _ => false
                                            | senc _ _ => false
                                            | aenc _ _ => false
                                            | pk _ => false
@@ -88,7 +88,7 @@ Fixpoint isNormal {X: TermSet} {t: Term} (proof: dy X t) : bool (** :=
                                                                         | aenc _ _ => false
                                                                         | pk _ => false
                                                                         | _ => true end))
-end. **). Admitted.
+end **). Admitted.
 
 
 
