@@ -15,6 +15,7 @@ Definition Name: Type:= string.
 
 Inductive Term: Type :=
 | VarTerm (v: Var)
+| NameTerm (m: Name)
 | PrivKeyTerm (k: Name)
 | PubKeyTerm (k: Name)
 | PairTerm (t1 t2: Term)
@@ -144,23 +145,64 @@ Proof.
       
   - destruct IHproof1. destruct IHproof2. exists (aenc x x0). simpl. rewrite -> H. rewrite -> H0. reflexivity.
 Qed.
-  
+
+
+Inductive SubTerm: Term -> Term -> Prop:=
+| SubTermRefl (t: Term) : SubTerm t t
+| SubTermTrans {t1 t2 t3: Term} (r1: SubTerm t1 t2) (r2: SubTerm t2 t3) : SubTerm t1 t3
+                                                                                  
+| SubTermPairLeft (t1 t2: Term) : SubTerm t1 (PairTerm t1 t2)
+| SubTermPairRight (t1 t2: Term) : SubTerm t2 (PairTerm t1 t2)
+                                           
+| SubTermPrivEncTerm (t : Term) (k: Name) : SubTerm t (PrivEncTerm t k)
+| SubTermPrivEncKey (t: Term) (k: Name) : SubTerm (PrivKeyTerm k) (PrivEncTerm t k)
+
+| SubTermPubEncTerm (t : Term) (k: Name) : SubTerm t (PubEncTerm t k)
+| SubTermPubEncKey (t: Term) (k: Name) : SubTerm (PubKeyTerm k) (PubEncTerm t k).
+
+Inductive SubTermSet (S: TermSet) : TermSet :=
+| SubTermSetCons : forall (t t': Term), (In Term S t') /\ (SubTerm t t') -> In Term (SubTermSet S) t.
+
+Fixpoint ProofTerms {X: TermSet} {t: Term} (proof: dy X t) : TermSet :=
+  match proof with
+  | @ax _ t _  => Singleton Term t
+  | @pk _ k kH => Union Term (Singleton Term (PubKeyTerm k)) (ProofTerms kH)
+
+  | @splitL _ t1 _ splitH => Union Term (Singleton Term t1) (ProofTerms splitH)
+  | @splitR _ _ t2 splitH =>  Union Term (Singleton Term t2) (ProofTerms splitH)
+  | @pair _ t1 t2 t1H t2H => Union Term (Singleton Term (PairTerm t1 t2)) (Union Term (ProofTerms t1H) (ProofTerms t2H))
+                        
+  | @sdec _ t' _ encH kH => Union Term (Singleton Term t') (Union Term (ProofTerms encH) (ProofTerms kH))
+  | @senc _ t' k tH kH => Union Term (Singleton Term (PrivEncTerm t' k)) (Union Term (ProofTerms tH) (ProofTerms kH))
+                        
+  | @adec _ t' _ encH kH => Union Term (Singleton Term t') (Union Term (ProofTerms encH) (ProofTerms kH))
+  | @aenc _ t' k tH kH =>  Union Term (Singleton Term (PubEncTerm t' k)) (Union Term (ProofTerms tH) (ProofTerms kH))
+  end.
+
+Theorem SubTermProperty: forall (X: TermSet) (t: Term) (p: dy X t), ((isNormal p) = true)
+                                                                       -> match p return Prop with
+                                                                          | pair _ _ => (Included Term (ProofTerms p) (Union Term X (Singleton Term t)))
+                                                                          | senc _ _ => (Included Term (ProofTerms p) (Union Term X (Singleton Term t)))
+                                                                          | aenc _ _ => (Included Term (ProofTerms p) (Union Term X (Singleton Term t)))
+                                                                          | pk _ => (Included Term (ProofTerms p) (Union Term X (Singleton Term t)))
+                                                                          | _ => (Included Term (ProofTerms p) X)
+                                                                          end.
+Admitted.
 Fixpoint nPred (n: nat) : Type :=
   match n with
   | O => Prop
   | S n' => Term -> (nPred n')
   end.
 
-Definition TermList: Type := list Term.
+Inductive TermVector: nat -> Type :=
+  | noterms : TermVector 0
+  | consterm {n: nat} (hd: Term) (tl: TermVector n): TermVector (S n).
 
-Inductive tLength: TermList -> nat -> Prop :=
-| EmptyList : tLength [] 0
-| AddElement {hd: Term} {tl: TermList} {n: nat} (H: tLength tl n): tLength (hd::tl) (S n).
 
 Inductive Assertion: Type :=
 | EqTerm (t u: Term)
-| NAryPredicate {n: nat} (P: nPred n) {t: TermList} (lp: tLength t n)
-| Member {n: nat} {t0: Term} {t: TermList} (lp: tLength t n)
+| NAryPredicate {n: nat} (P: nPred n) (t: TermVector n)
+| Member {n: nat} {t0: Term} (t: TermVector n)
 | Conj (a0 a1 : Assertion)
-| Exists (afun: Var -> Assertion)
+| Exists (afun: Term -> Assertion)
 | Says (k: Name) (a: Assertion).         
