@@ -100,6 +100,8 @@ Fixpoint isNormal {X: TermSet} {t: Term} (proof: dy X t) : bool :=
 
 
 Theorem Normalisation :forall (X: TermSet) (t: Term) (proof: dy X t), exists (normal_proof: dy X t), (isNormal normal_proof) = true. Admitted.
+
+  
 Fixpoint nPred (n: nat) : Type :=
   match n with
   | O => Prop
