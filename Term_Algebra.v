@@ -188,6 +188,7 @@ Theorem SubTermProperty: forall (X: TermSet) (t: Term) (p: dy X t), ((isNormal p
                                                                           | _ => (Included Term (ProofTerms p) X)
                                                                           end.
 Admitted.
+
 Fixpoint nPred (n: nat) : Type :=
   match n with
   | O => Prop
