@@ -1,6 +1,6 @@
 Set Warnings "-notation-overridden,-parsing,-deprecated-hint-without-locality".
 From Coq Require Import Bool.Bool.
-
+From Coq Require Import Program.Equality.
 From Coq Require Import Lists.List. Import ListNotations.
 (**
 From Coq Require Import Arith.Arith.
@@ -99,8 +99,51 @@ Fixpoint isNormal {X: TermSet} {t: Term} (proof: dy X t) : bool :=
   end.
 
 
-Theorem Normalisation :forall (X: TermSet) (t: Term) (proof: dy X t), exists (normal_proof: dy X t), (isNormal normal_proof) = true. Admitted.
-
+Theorem TermNormalisation :forall (X: TermSet) (t: Term) (proof: dy X t), exists (normal_proof: dy X t), (isNormal normal_proof) = true.
+Proof.
+  intros X t proof. induction proof.
+  - exists (ax inH). simpl. reflexivity.
+    
+  - destruct IHproof. exists (pk x). simpl. apply H.
+    
+  - destruct IHproof. dependent destruction x.
+    + exists (splitL (ax inH)). reflexivity.
+    + exists (splitL (splitL x)). simpl in H. simpl. rewrite -> H. reflexivity.
+    + exists (splitL (splitR x)). simpl in H. simpl. rewrite -> H. reflexivity.
+    + exists x1. simpl in H. apply andb_true_iff in H. destruct H. apply H.
+    + exists (splitL (sdec x1 x2)). simpl in H. simpl. rewrite -> H. reflexivity.
+    + exists (splitL (adec x1 x2)). simpl in H. simpl. rewrite -> H. reflexivity.
+      
+  - destruct IHproof. dependent destruction x.
+    + exists (splitR (ax inH)). reflexivity.
+    + exists (splitR (splitL x)). simpl in H. simpl. rewrite -> H. reflexivity.
+    + exists (splitR (splitR x)). simpl in H. simpl. rewrite -> H. reflexivity.
+    + exists x2. simpl in H. apply andb_true_iff in H. destruct H. apply H0.
+    + exists (splitR (sdec x1 x2)). simpl in H. simpl. rewrite -> H. reflexivity.
+    + exists (splitR (adec x1 x2)). simpl in H. simpl. rewrite -> H. reflexivity.
+      
+  - destruct IHproof1. destruct IHproof2. exists (pair x x0). simpl. rewrite -> H. rewrite -> H0. reflexivity.
+    
+  - destruct IHproof1. destruct IHproof2. dependent destruction x.
+    + exists (sdec (ax inH) x0). simpl. rewrite -> H0. reflexivity.
+    + exists (sdec (splitL x) x0). simpl. simpl in H. rewrite -> H. rewrite -> H0. reflexivity.
+    + exists (sdec (splitR x) x0). simpl. simpl in H. rewrite -> H. rewrite -> H0. reflexivity.
+    + exists (sdec (sdec x1 x2) x0). simpl. simpl in H. rewrite -> H. rewrite -> H0. reflexivity.
+    + exists x1. simpl in H. apply andb_true_iff in H. destruct H. apply H.
+    + exists (sdec (adec x1 x2) x0). simpl. simpl in H. rewrite -> H. rewrite -> H0. reflexivity.
+      
+  - destruct IHproof1. destruct IHproof2. exists (senc x x0). simpl. rewrite -> H. rewrite -> H0. reflexivity.
+    
+  - destruct IHproof1. destruct IHproof2. dependent destruction x.
+    + exists (adec (ax inH) x0). simpl. rewrite -> H0. reflexivity.
+    + exists (adec (splitL x) x0). simpl. simpl in H. rewrite -> H. rewrite -> H0. reflexivity.
+    + exists (adec (splitR x) x0). simpl. simpl in H. rewrite -> H. rewrite -> H0. reflexivity.
+    + exists (adec (sdec x1 x2) x0). simpl. simpl in H. rewrite -> H. rewrite -> H0. reflexivity.
+    + exists (adec (adec x1 x2) x0). simpl. simpl in H. rewrite -> H. rewrite -> H0. reflexivity.
+    + exists x1. simpl in H. apply andb_true_iff in H. destruct H. apply H.
+      
+  - destruct IHproof1. destruct IHproof2. exists (aenc x x0). simpl. rewrite -> H. rewrite -> H0. reflexivity.
+Qed.
   
 Fixpoint nPred (n: nat) : Type :=
   match n with
