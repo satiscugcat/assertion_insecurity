@@ -186,8 +186,15 @@ Fixpoint ProofTerms {X: TermSet} {t: Term} (proof: dy X t) : TermSet :=
   | @adec _ t' _ encH kH => Union (Singleton t') (Union (ProofTerms encH) (ProofTerms kH))
   | @aenc _ t' k tH kH =>  Union (Singleton (PubEncTerm t' k)) (Union (ProofTerms tH) (ProofTerms kH))
   end.
-
-Lemma UnionSubTermLeftc {x: Term} {S T: TermSet}:  (In (SubTermSet S) x) -> (In (SubTermSet (Union S T)) x).
+Lemma TermInSubTermSet {x: Term} {S: TermSet} : In S x -> In (SubTermSet S) x.
+Proof.
+  intros inS.
+  assert (H : exists (somet: Term), (In S somet) /\ (SubTerm x somet)). {
+    exists x. split. apply inS. apply (SubTermRefl x).
+  } apply (SubTermSetCons S H).
+Qed.
+  
+Lemma UnionSubTermLeft {x: Term} {S T: TermSet}:  (In (SubTermSet S) x) -> (In (SubTermSet (Union S T)) x).
 Proof.
   intros inSubS. inversion inSubS. subst.
   assert (H : exists (somet: Term), (In (Union S T) somet) /\ (SubTerm x somet)). {
@@ -225,8 +232,43 @@ Theorem SubTermProperty: forall (X: TermSet) (t: Term) (p: dy X t), ((isNormal p
                                                                           | _ => (Included
                                                                                     (ProofTerms p)
                                                                                     (SubTermSet X))
+
                                                                           end.
 Admitted.
+(**
+Proof.
+  intros X t proof. induction proof.
+  - intros eq. simpl.  intros x inSingleton. inversion inSingleton. subst. assert (H : exists (somet: Term), (In X somet) /\ (SubTerm x somet)). {
+      exists x. split. apply inH. apply (SubTermRefl x).
+    } apply (SubTermSetCons X H).
+  - intros eq. simpl in eq. pose (IHproof eq) as proofsub. dependent destruction proof.
+    
+    + unfold ProofTerms. unfold ProofTerms in proofsub. unfold Included in proofsub.  intros x. pose (proofsub x) as xsub. intros ukpk. destruct ukpk.
+      * apply (UnionSubTermRight (TermInSubTermSet H)).
+      * inversion H. subst. apply (UnionSubTermLeft (TermInSubTermSet inH)).
+    + simpl. simpl in proofsub. unfold Included. unfold Included in proofsub.  intros x. pose (proofsub x) as xsub. intros unionterm1. destruct unionterm1.
+      * apply (UnionSubTermRight (TermInSubTermSet H)).
+      * apply xsub in H. apply (UnionSubTermLeft H).
+    + simpl. simpl in proofsub. unfold Included. unfold Included in proofsub.  intros x. pose (proofsub x) as xsub. intros unionterm. destruct unionterm.
+      * apply (UnionSubTermRight (TermInSubTermSet H)).
+      * apply xsub in H. apply (UnionSubTermLeft H).
+    + simpl. simpl in proofsub. unfold Included. unfold Included in proofsub.  intros x. pose (proofsub x) as xsub. intros unionterm. destruct unionterm.
+      * apply (UnionSubTermRight (TermInSubTermSet H)).
+      * apply xsub in H. apply (UnionSubTermLeft H).
+    + simpl. simpl in proofsub. unfold Included. unfold Included in proofsub.  intros x. pose (proofsub x) as xsub. intros unionterm. destruct unionterm.
+      * apply (UnionSubTermRight (TermInSubTermSet H)).
+      * apply xsub in H. apply (UnionSubTermLeft H).
+        
+  - intros eq. simpl in eq. apply andb_true_iff in eq. destruct eq. pose (IHproof H) as proofsub. dependent destruction proof.
+    + simpl. simpl in proofsub. intros x. pose (proofsub x) as xsub. intros unionterm. destruct unionterm.
+      * inversion H1. subst. assert (H' : exists t, (In X t) /\ SubTerm x t). {
+          exists (PairTerm x t2). split. apply inH. apply (SubTermPairLeft x t2).
+        } apply (SubTermSetCons X H').
+      * inversion H1. subst. apply (TermInSubTermSet inH).
+    +
+      
+Qed.
+**)
 Fixpoint nPred (n: nat) : Type :=
   match n with
   | O => Prop
