@@ -10,6 +10,13 @@ Import Nat.
 From Coq Require Import Strings.String.
 From Coq Require Export Sets.Ensembles.
 
+Arguments In {U}.
+Arguments Union {U}.
+Arguments Singleton {U}.
+Arguments Included {U}.
+
+
+
 Definition Var: Type := string.
 Definition Name: Type:= string.
 
@@ -26,7 +33,7 @@ Definition TermSet: Type := Ensemble Term.
 
 
 Inductive dy : TermSet -> Term -> Type:=
-| ax {X: TermSet} {t: Term} (inH: In Term X t) : dy X t
+| ax {X: TermSet} {t: Term} (inH: In X t) : dy X t
 | pk {X: TermSet} {k: Name} (kH: dy X (PrivKeyTerm k)) : dy X (PubKeyTerm k)
                                                            
 | splitL {X: TermSet} {t1 t2: Term} (splitH: dy X (PairTerm t1 t2)) : dy X t1
@@ -39,7 +46,8 @@ Inductive dy : TermSet -> Term -> Type:=
 | adec {X: TermSet} {t: Term} {k: Name} (encH: dy X (PubEncTerm t k)) (keyH: dy X (PrivKeyTerm k)): dy X t
 | aenc {X: TermSet} {t: Term} {k: Name} (tH: dy X t) (kH: dy X (PubKeyTerm k)) : dy X (PubEncTerm t k).
 
-Theorem TermMonotonicity: forall (X Y: TermSet) (t: Term), (dy X t) -> (Included Term X Y) -> (dy Y t).
+
+Theorem TermMonotonicity: forall (X Y: TermSet) (t: Term), (dy X t) -> (Included X Y) -> (dy Y t).
 Proof. intros X Y t. intros dyxt subset. induction dyxt.
        - subst. apply (ax (subset t inH)).
        - apply  (pk (IHdyxt subset)).
@@ -161,34 +169,64 @@ Inductive SubTerm: Term -> Term -> Prop:=
 | SubTermPubEncKey (t: Term) (k: Name) : SubTerm (PubKeyTerm k) (PubEncTerm t k).
 
 Inductive SubTermSet (S: TermSet) : TermSet :=
-| SubTermSetCons : forall (t t': Term), (In Term S t') /\ (SubTerm t t') -> In Term (SubTermSet S) t.
+| SubTermSetCons {t: Term} (proof: exists (t': Term), (In S t') /\ (SubTerm t t')) : In (SubTermSet S) t.
 
 Fixpoint ProofTerms {X: TermSet} {t: Term} (proof: dy X t) : TermSet :=
   match proof with
-  | @ax _ t _  => Singleton Term t
-  | @pk _ k kH => Union Term (Singleton Term (PubKeyTerm k)) (ProofTerms kH)
+  | @ax _ t _  => Singleton t
+  | @pk _ k kH => Union (Singleton (PubKeyTerm k)) (ProofTerms kH)
 
-  | @splitL _ t1 _ splitH => Union Term (Singleton Term t1) (ProofTerms splitH)
-  | @splitR _ _ t2 splitH =>  Union Term (Singleton Term t2) (ProofTerms splitH)
-  | @pair _ t1 t2 t1H t2H => Union Term (Singleton Term (PairTerm t1 t2)) (Union Term (ProofTerms t1H) (ProofTerms t2H))
+  | @splitL _ t1 _ splitH => Union (Singleton t1) (ProofTerms splitH)
+  | @splitR _ _ t2 splitH =>  Union (Singleton t2) (ProofTerms splitH)
+  | @pair _ t1 t2 t1H t2H => Union (Singleton (PairTerm t1 t2)) (Union (ProofTerms t1H) (ProofTerms t2H))
                         
-  | @sdec _ t' _ encH kH => Union Term (Singleton Term t') (Union Term (ProofTerms encH) (ProofTerms kH))
-  | @senc _ t' k tH kH => Union Term (Singleton Term (PrivEncTerm t' k)) (Union Term (ProofTerms tH) (ProofTerms kH))
+  | @sdec _ t' _ encH kH => Union (Singleton t') (Union (ProofTerms encH) (ProofTerms kH))
+  | @senc _ t' k tH kH => Union (Singleton (PrivEncTerm t' k)) (Union (ProofTerms tH) (ProofTerms kH))
                         
-  | @adec _ t' _ encH kH => Union Term (Singleton Term t') (Union Term (ProofTerms encH) (ProofTerms kH))
-  | @aenc _ t' k tH kH =>  Union Term (Singleton Term (PubEncTerm t' k)) (Union Term (ProofTerms tH) (ProofTerms kH))
+  | @adec _ t' _ encH kH => Union (Singleton t') (Union (ProofTerms encH) (ProofTerms kH))
+  | @aenc _ t' k tH kH =>  Union (Singleton (PubEncTerm t' k)) (Union (ProofTerms tH) (ProofTerms kH))
   end.
 
+Lemma UnionSubTermLeftc {x: Term} {S T: TermSet}:  (In (SubTermSet S) x) -> (In (SubTermSet (Union S T)) x).
+Proof.
+  intros inSubS. inversion inSubS. subst.
+  assert (H : exists (somet: Term), (In (Union S T) somet) /\ (SubTerm x somet)). {
+    destruct proof. destruct H. exists x0. split.
+    - apply (Union_introl Term S T x0 H).
+    - apply H0.
+  } apply (SubTermSetCons (Union S T) H).
+Qed.
+
+Lemma UnionSubTermRight {x: Term} {S T: TermSet}: (In (SubTermSet T) x) -> (In (SubTermSet (Union S T)) x).
+Proof.
+  intros inSubT. inversion inSubT. subst.
+  assert (H : exists (somet: Term), (In (Union S T) somet) /\ (SubTerm x somet)). {
+    destruct proof. destruct H. exists x0. split.
+    - apply (Union_intror Term S T x0 H).
+    - apply H0.
+  } apply (SubTermSetCons (Union S T) H).
+Qed.
+                                                               
+  
 Theorem SubTermProperty: forall (X: TermSet) (t: Term) (p: dy X t), ((isNormal p) = true)
                                                                        -> match p return Prop with
-                                                                          | pair _ _ => (Included Term (ProofTerms p) (Union Term X (Singleton Term t)))
-                                                                          | senc _ _ => (Included Term (ProofTerms p) (Union Term X (Singleton Term t)))
-                                                                          | aenc _ _ => (Included Term (ProofTerms p) (Union Term X (Singleton Term t)))
-                                                                          | pk _ => (Included Term (ProofTerms p) (Union Term X (Singleton Term t)))
-                                                                          | _ => (Included Term (ProofTerms p) X)
+                                                                          | pair _ _ => (Included
+                                                                                           (ProofTerms p)
+                                                                                           (SubTermSet (Union X (Singleton t))))
+                                                                          | senc _ _ => (Included
+                                                                                           (ProofTerms p)
+                                                                                           (SubTermSet (Union X (Singleton t))))
+                                                                          | aenc _ _ => (Included
+                                                                                           (ProofTerms p)
+                                                                                           (SubTermSet (Union X (Singleton t))))
+                                                                          | pk _ => (Included
+                                                                                       (ProofTerms p)
+                                                                                       (SubTermSet (Union X (Singleton t))))
+                                                                          | _ => (Included
+                                                                                    (ProofTerms p)
+                                                                                    (SubTermSet X))
                                                                           end.
 Admitted.
-
 Fixpoint nPred (n: nat) : Type :=
   match n with
   | O => Prop
