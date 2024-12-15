@@ -158,8 +158,6 @@ Qed.
 Inductive SubTerm: Term -> Term -> Prop:=
 | SubTermRefl (t: Term) : SubTerm t t
 | SubTermTrans {t1 t2 t3: Term} (r1: SubTerm t1 t2) (r2: SubTerm t2 t3) : SubTerm t1 t3
-
-| SubTermPrivPub (k: Name): SubTerm (PrivKeyTerm k) (PubKeyTerm k)
                                                                                   
 | SubTermPairLeft (t1 t2: Term) : SubTerm t1 (PairTerm t1 t2)
 | SubTermPairRight (t1 t2: Term) : SubTerm t2 (PairTerm t1 t2)
@@ -266,18 +264,12 @@ Proof.
   - intros eq. simpl.  intros x inSingleton. inversion inSingleton. subst. assert (H : exists (somet: Term), (In X somet) /\ (SubTerm x somet)). {
       exists x. split. apply inH. apply (SubTermRefl x).
     } apply (SubTermSetCons X H).
-  - intros eq. simpl in eq. pose (IHproof eq) as proofsub. assert (proofsub': Included (ProofTerms proof) (SubTermSet (Union X (Singleton (PrivKeyTerm k))))). {
-      dependent destruction proof; auto; try (intros x ; intros inpterms ; apply (UnionSubTermLeft (proofsub x inpterms))).
+  - intros eq. simpl in eq. pose (IHproof eq) as proofsub. assert (proofsub': Included (ProofTerms proof) (SubTermSet X)). {
+      dependent destruction proof; auto.
     }
     clear proofsub. clear IHproof. clear eq. simpl. intros x. intros unionterm. destruct unionterm.
     + apply (UnionSubTermRight (TermInSubTermSet H)).
-    +  assert (H': Included (SubTermSet (Union X (Singleton (PrivKeyTerm k))))
-                    (SubTermSet (Union X (Singleton (PubKeyTerm k))))).
-      {
-        intros x' sub. destruct sub. destruct proof0. destruct H0. destruct H0.
-        - assert (req: exists(somet: Term), In X somet /\ SubTerm t somet). {exists x0. split. apply H0. apply H1.} apply (UnionSubTermLeft (SubTermSetCons X req)).
-        - inversion H0. subst.  assert (req: exists(somet: Term), In (Singleton (PubKeyTerm k)) somet /\ SubTerm t somet). {exists (PubKeyTerm k). split. apply (In_singleton Term (PubKeyTerm k)). apply (SubTermTrans H1 (SubTermPrivPub k)).} apply (UnionSubTermRight (SubTermSetCons (Singleton (PubKeyTerm k)) req)).
-      } apply (H' x (proofsub' x H)).
+    +  apply (UnionSubTermLeft (proofsub' x H)).
 
         
   - intros eq. simpl in eq. apply andb_true_iff in eq. destruct eq. pose (IHproof H) as proofsub. dependent destruction proof.
@@ -392,7 +384,7 @@ Proof.
       destruct proof1; auto; try discriminate sanity.
     }
 
-    assert (proofsub2': Included (ProofTerms proof2) (SubTermSet (Union X (Singleton (PrivKeyTerm k))))). {
+    assert (proofsub2': Included (ProofTerms proof2) (SubTermSet (Union X (Singleton (PrivKeyTerm k))) )). {
       dependent destruction proof2 ; auto ; try (intros x ; intros inpterms ; apply (UnionSubTermLeft (proofsub2 x inpterms))).
 
     } clear proofsub1. clear proofsub2. clear IHproof1. clear IHproof2. clear sanity. simpl. intros x unionterm. destruct unionterm.
@@ -439,16 +431,14 @@ Proof.
       destruct proof1; auto; try discriminate sanity.
     }
 
-    assert (proofsub2': Included (ProofTerms proof2) (SubTermSet (Union X (Singleton (PrivKeyTerm k))))). {
-      dependent destruction proof2 ; auto ; try (intros x ; intros inpterms ; apply (UnionSubTermLeft (proofsub2 x inpterms))).
+    assert (proofsub2': Included (ProofTerms proof2) (SubTermSet X) ). {
+      dependent destruction proof2 ; auto.
 
     } clear proofsub1. clear proofsub2. clear IHproof1. clear IHproof2. clear sanity. simpl. intros x unionterm. destruct unionterm.
     + inversion H. subst. pose (proofsub1' (PubEncTerm x k) (ResultInProofTerms proof1)) as bigfish. apply (BiggerFish (SubTermPubEncTerm x k) bigfish).
     + destruct H.
       ++ apply (proofsub1' x H).
-      ++ pose (proofsub2' x H) as xsub2'. destruct xsub2'. destruct proof. destruct H0. destruct H0.
-      * assert (H': exists (somet: Term), In X somet /\ SubTerm t0 somet). { exists x. split. apply H0. apply H1. } apply (SubTermSetCons X H').
-      * inversion H0. subst. pose (proofsub1' (PubEncTerm t k) (ResultInProofTerms proof1)) as bigfish. apply (BiggerFish (SubTermTrans H1 (SubTermTrans (SubTermPrivPub k)(SubTermPubEncKey t k))) bigfish).
+      ++ apply (proofsub2' x H).
 
   - intros eq. simpl in eq. apply andb_true_iff in eq. destruct eq as [eq1 eq2]. pose (IHproof1 eq1) as proofsub1. pose (IHproof2 eq2) as proofsub2. simpl.
 
