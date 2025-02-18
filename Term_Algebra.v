@@ -14,11 +14,16 @@ Arguments In {U}.
 Arguments Union {U}.
 Arguments Singleton {U}.
 Arguments Included {U}.
+Arguments Empty_set {U}.
+Arguments cons {A}.
 
-
-
-Definition Var: Type := string.
-Definition Name: Type:= string.
+Definition Var: Type := nat.
+Definition Name: Type:= nat.
+Fixpoint nAryFun (n: nat) (A: Type) (B: Type) : Type :=
+  match n with
+  | 0 => B
+  | S n' => A -> (nAryFun n' A B)
+  end.
 
 Inductive Term: Type :=
 | VarTerm (v: Var)
@@ -31,6 +36,16 @@ Inductive Term: Type :=
 
 Definition TermSet: Type := Ensemble Term.
 
+Fixpoint FVSetTerm (t: Term) : Ensemble Var :=
+    match t with
+    | VarTerm v => Singleton v
+    | NameTerm _ => Empty_set
+    | PrivKeyTerm _ => Empty_set
+    | PubKeyTerm _ => Empty_set
+    | PairTerm t1 t2 => Union (FVSetTerm t1) (FVSetTerm t2)
+    | PrivEncTerm t' _ => FVSetTerm t'
+    | PubEncTerm t' _ => FVSetTerm t'
+    end.
 
 Inductive dy : TermSet -> Term -> Type:=
 | ax {X: TermSet} {t: Term} (inH: In X t) : dy X t
@@ -472,21 +487,172 @@ Proof.
           * apply (H2 x (proofsub2' x H)).
 Qed.
 
-Fixpoint nPred (n: nat) : Type :=
-  match n with
-  | O => Prop
-  | S n' => Term -> (nPred n')
-  end.
 
+
+(*
 Inductive TermVector: nat -> Type :=
-  | noterms : TermVector 0
-  | consterm {n: nat} (hd: Term) (tl: TermVector n): TermVector (S n).
+  | VectorNull : TermVector 0
+  | VectorCons {n: nat} (hd: Term) (tl: TermVector n): TermVector (S n).
+ *)
 
+Check cons.
+Inductive PositionTermInTermList: list Term  -> Term -> nat -> Prop :=
+| PositionVectorHead0 {n: nat} (head: Term) (tl: list Term) : PositionTermInTermList (head::tl) head 0
+| PositionVectorConsSn {n i: nat} (head elem: Term) {tl: list Term} (proof: PositionTermInTermList tl elem i): PositionTermInTermList (head::tl) elem (S i).
+
+Inductive ListLength {A: Type}: list A -> nat -> Prop :=
+| Null0 : ListLength [] 0
+| ConsS (head : A) {n: nat} {tail : list A} (proof: ListLength tail n) : ListLength (head::tail) (S n).
 
 Inductive Assertion: Type :=
-| EqTerm (t u: Term)
-| NAryPredicate {n: nat} (P: nPred n) (t: TermVector n)
-| Member {n: nat} {t0: Term} (t: TermVector n)
-| Conj (a0 a1 : Assertion)
-| Exists (afun: Term -> Assertion)
-| Says (k: Name) (a: Assertion).         
+| EqAssertion (t u: Term)
+| NAryAssertion {n: nat} (P: nAryFun n Term Prop) (tlist: list Term) (proof: ListLength tlist n)
+| MemberAssertion (t0: Term) (tlist: list Term)
+| AndAssertion (a0 a1 : Assertion)
+| ExistsAssertion (afun: Term -> Assertion) (x: Var)
+| SaysAssertion (k: Name) (a: Assertion).         
+
+Fixpoint foldr {A B: Type} (accumulatingfun: A -> B -> B) (initial: B) (fuel: list A): B :=
+  match fuel with
+  | [] => initial
+  | hd::tl => accumulatingfun hd (foldr accumulatingfun initial tl)
+  end.
+Fixpoint FVSetAssertion (a: Assertion) : Ensemble Var :=
+  match a with
+  | EqAssertion t u => Union (FVSetTerm t) (FVSetTerm u)
+  | NAryAssertion _ tlist _ => (foldr (fun (t: Term) (ts: Ensemble Var) => Union (FVSetTerm t) ts) Empty_set tlist)
+  | MemberAssertion t tlist => Union (FVSetTerm t) (foldr (fun (t: Term) (ts: Ensemble Var) => Union (FVSetTerm t) ts) Empty_set tlist)
+  | AndAssertion a0 a1 => Union (FVSetAssertion a0) (FVSetAssertion a1)
+  | ExistsAssertion afun x => Subtract Var (FVSetAssertion (afun (VarTerm x))) x
+  | SaysAssertion _ a => FVSetAssertion a
+  end.
+
+Inductive FVSetTermSet: TermSet -> Ensemble Var :=
+| FVSetTermSetCons {S: TermSet}{x: Var} (proof: exists (t: Term), In S t /\ In (FVSetTerm t) x): In (FVSetTermSet S) x.
+Definition AssertionSet := Ensemble Assertion.
+Inductive FVSetAssertionSet: AssertionSet -> Ensemble Var :=
+| FVSetAssertionSetCons {A: AssertionSet}{x: Var} (proof: exists (a: Assertion), In A a /\ In (FVSetAssertion a) x): In (FVSetAssertionSet A) x.
+
+
+Inductive TermSubTermPosition: Term -> Term -> list nat -> Prop :=
+| TermTermEpsilon {t: Term}: TermSubTermPosition t t []
+                                                 
+| TermPairTermLeft0 {t t1 t2: Term} {pos: list nat} (proof: TermSubTermPosition t (PairTerm t1 t2) pos) : TermSubTermPosition t t1 (0::pos)
+| TermPairTermRight1 {t t1 t2: Term} {pos: list nat} (proof: TermSubTermPosition t (PairTerm t1 t2) pos) : TermSubTermPosition t t2 (1::pos)
+
+| TermPrivEncTermTerm0 (t t': Term) (k: Name) {pos: list nat} (proof: TermSubTermPosition t (PrivEncTerm t' k) pos) : TermSubTermPosition t t' (0::pos)
+| TermPrivEncTermName1 (t t': Term) (k: Name) {pos: list nat} (proof: TermSubTermPosition t (PrivEncTerm t' k) pos) : TermSubTermPosition t (PrivKeyTerm k) (1::pos)
+
+| TermPubEncTermTerm0 (t t': Term) (k: Name) {pos: list nat} (proof: TermSubTermPosition t (PubEncTerm t' k) pos) : TermSubTermPosition t t' (0::pos)
+| TermPubEncTermName1 (t t': Term) (k: Name) {pos: list nat} (proof: TermSubTermPosition t (PubEncTerm t' k) pos) : TermSubTermPosition t (PubKeyTerm k) (1::pos).
+
+Inductive TermPositionSet: Term -> Ensemble (list nat) :=
+| TermPositionSetCons {t: Term} {pos: list nat} (proof: exists (t': Term), TermSubTermPosition t t' pos): In (TermPositionSet t) pos.
+
+Inductive AssertionTermPosition: Assertion -> Term -> list nat -> Prop :=
+| AssertionEqualityLeft0 {t tsub: Term} {pos: list nat} (proof: TermSubTermPosition t tsub pos) (t': Term) : AssertionTermPosition (EqAssertion t t') tsub (0::pos)
+| AssertionEqualityRight1 {t t' t'sub: Term} {pos: list nat} (t: Term)(proof: TermSubTermPosition t t'sub pos) : AssertionTermPosition (EqAssertion t t') t'sub (1::pos)
+ |AssertionNAry {n i: nat} (P: nAryFun n Term Prop) {tlist: list Term} (lproof: ListLength tlist n) {t: Term} (proof: PositionTermInTermList tlist t i) : AssertionTermPosition (NAryAssertion P tlist lproof) t [i]
+| AssertionMemberMember0  (t: Term) (tlist: list Term) : AssertionTermPosition (MemberAssertion t tlist) t [0]
+| AssertionMemberDisjunctionSi {n i: nat} {t: Term} (tlist: list Term) (t': Term) (proof: PositionTermInTermList tlist t i): AssertionTermPosition (MemberAssertion t' tlist) t' [(S i)]
+                                                                                                                                                        
+| AssertionAndLeft0 {a : Assertion}{tsub: Term} {pos: list nat} (proof: AssertionTermPosition a tsub pos) (a' : Assertion): AssertionTermPosition (AndAssertion a a') tsub (0::pos)
+| AssertionAndRight1 {a': Assertion} {tsub: Term} {pos: list nat} (a: Assertion) (proof: AssertionTermPosition a' tsub pos) : AssertionTermPosition (AndAssertion a a') tsub (1::pos)
+
+| AssertionExistsVar0 {f: Term -> Assertion} (ftsub: Term -> Term) {pos: list nat} {tsub: Term} {x: Var}  (proof: AssertionTermPosition (f tsub) (ftsub tsub) pos) : AssertionTermPosition (ExistsAssertion f x) (ftsub (VarTerm x)) (0::pos)
+| AssertionSaysName00 (k: Name) (a: Assertion): AssertionTermPosition (SaysAssertion k a) (NameTerm k) [0;0]
+| AssertionSaysKey0 (k: Name) (a: Assertion): AssertionTermPosition (SaysAssertion k a) (PubKeyTerm k) [0]
+| AssertionSaysAss1 {a: Assertion} (k: Name) {tsub: Term}{pos: list nat} (proof: AssertionTermPosition a tsub pos): AssertionTermPosition (SaysAssertion k a) tsub (1::pos).
+
+Inductive AssertionPositionSet: Assertion -> Ensemble (list nat) :=
+| AssertionPositionSetCons {a : Assertion} {pos: list nat} (proof: exists (t': Term), AssertionTermPosition a t' pos): In (AssertionPositionSet a) pos.
+
+Inductive AssertionTermPositionSet: Assertion -> Term -> Ensemble (list nat):=
+| AssertionTermPositionSetCons {a: Assertion} {t: Term} {pos: list nat} (proof: AssertionTermPosition a t pos): In (AssertionTermPositionSet a t) pos
+.
+Inductive ProperPrefix: (list nat) -> (list nat) -> Prop :=
+| HeadPrefix (hd: nat) {tl: list nat} (nonempty: (tl = []) -> False) : ProperPrefix [hd] (hd::tl)
+| ConsPrefix (hd: nat) (tl1 tl2: list nat) (proof: ProperPrefix tl1 tl2) : ProperPrefix (hd::tl1) (hd::tl2).
+
+Inductive QSet: list nat  -> Ensemble (list nat) :=
+| EpsilonInQ (t: Term) (pos: list nat): In (QSet pos) []
+| PrefixInQ {t: Term} {pos pos': list nat} (prefixProof: ProperPrefix pos' pos) : In (QSet pos) pos'.
+
+Inductive AbstractablePositionSetTerm: TermSet -> Term -> Ensemble (list nat) :=
+| AbsractablePositionSetTermCons {S: TermSet} {t: Term} {p: list nat} (positionTermProof: In (TermPositionSet t) p)(abstractableProof: forall (q: list nat) (t': Term), In (QSet p) q -> TermSubTermPosition t t' q -> dy S t') : In (AbstractablePositionSetTerm S t) p. 
+
+Inductive AbstractablePositionSetAssertion: TermSet -> Assertion -> Ensemble (list nat) :=
+| AbsAssertionEqualityLeft0 {S: TermSet} {t0: Term} {pos: list nat} (proof: AbstractablePositionSetTerm S t0 pos) (t1: Term):In (AbstractablePositionSetAssertion S (EqAssertion t0 t1)) (0::pos)
+| AbsAssertionEqualityRight1 {S: TermSet} {t1: Term} {pos: list nat} (t0: Term) (proof: AbstractablePositionSetTerm S t1 pos): In (AbstractablePositionSetAssertion S (EqAssertion t0 t1)) (1::pos)
+|AbsAssertionNAry {S: TermSet} {t: Term} {i n: nat} {tlist: list Term}(P: nAryFun n Term Prop) (proofLength: ListLength tlist n) (proofIdentity: PositionTermInTermList tlist t i) (proofDerivable: dy S t): In (AbstractablePositionSetAssertion S (NAryAssertion P tlist proofLength)) [i]
+
+| AbsAssertionMember (S: TermSet) {n: nat} (t0: Term) (tlist : list Term) : In (AbstractablePositionSetAssertion S (MemberAssertion t0 tlist)) [0]
+
+| AbsAssertionAndLeft0{S:TermSet} {a : Assertion} {pos: list nat} (proof: In (AbstractablePositionSetAssertion S a) pos) (a' : Assertion): In (AbstractablePositionSetAssertion S (AndAssertion a a')) (0::pos)
+| AbsAssertionAndRight1 {S: TermSet} {a': Assertion} {pos: list nat} (a: Assertion) (proof: In (AbstractablePositionSetAssertion S a') pos): In (AbstractablePositionSetAssertion S (AndAssertion a a')) (1::pos)
+| AbsAssertionExistsVar0 {S: TermSet}{pos: list nat} (afun: Term -> Assertion) {x: Var} (proof: In (AbstractablePositionSetAssertion (Union S (Singleton (VarTerm x))) (afun (VarTerm x))) pos): In (AbstractablePositionSetAssertion S (ExistsAssertion afun x)) (0::pos)
+| AbsAssertionSaysPub0 (S: TermSet)(k: Name) (a: Assertion) : In (AbstractablePositionSetAssertion S (SaysAssertion k a)) [0]
+| AbsAssertionSaysAss1 {S: TermSet} (k: Name) {a: Assertion} {pos: list nat} (proof: In (AbstractablePositionSetAssertion S a) pos): In (AbstractablePositionSetAssertion S (SaysAssertion k a)) (1::pos).
+
+Check bool.
+Definition TermEqualityDecidability: forall (t1 t2 : Term), {t1 = t2} + {t1 <> t2}.
+Admitted.
+
+
+
+  
+Fixpoint inList {A: Type} (eqdec: forall (t1 t2: A), {t1 = t2} + {t1 <> t2}) (haystack: list A) (needle: A): bool :=
+  match haystack with
+  | [] => false
+  | hd::tl => if eqdec hd needle then true else (inList eqdec tl needle)
+  end.
+
+Fixpoint ListIntersection {A: Type} (l1 l2: list A) : list A:=
+  match l1 with
+  | [] => []
+  | hd::tl => if (inList l2 hd) then hd::(ListIntersection tl l2) else ListIntersection tl l2
+  end.
+
+Inductive ady: TermSet -> AssertionSet -> Assertion -> Type :=
+| aax (S: TermSet) {A: AssertionSet} {alpha: Assertion} (proof: In A alpha): ady S A alpha
+                                                                                 
+| aeq {S: TermSet} (A: AssertionSet) {t: Term} (proof: dy S t) : ady S A (EqAssertion t t)
+                                                                     
+| acons_pair {S: TermSet} {A: AssertionSet} {t1 t2 u1 u2: Term} (p1: ady S A (EqAssertion t1 u1)) (p2: ady S A (EqAssertion t2 u2)): ady S A (EqAssertion (PairTerm t1 t2) (PairTerm u1 u2))
+| acons_privkey {S: TermSet} {A: AssertionSet} {t1 t2: Term} {k1 k2: Name} (p1: ady S A (EqAssertion t1 t2)) (p2: ady S A (EqAssertion (PrivKeyTerm k1) (PrivKeyTerm k2))): ady S A (EqAssertion (PrivEncTerm t1 k1) (PrivEncTerm t2 k2))
+| acons_pubkey {S: TermSet} {A: AssertionSet} {t1 t2: Term} {k1 k2: Name} (p1: ady S A (EqAssertion t1 t2)) (p2: ady S A (EqAssertion (PubKeyTerm k1) (PubKeyTerm k2))): ady S A (EqAssertion (PubEncTerm t1 k1) (PubEncTerm t2 k2))
+
+| asym {S: TermSet} {A: AssertionSet} {t u: Term} (p: ady S A (EqAssertion t u)) : ady S A (EqAssertion u t)
+
+| atrans {S: TermSet} {A: AssertionSet} {t1 tk: Term} (p: ValidTransEqPremiseList S A t1 tk): ady S A (EqAssertion t1 tk)
+
+| aproj_pair_left {S: TermSet} {A: AssertionSet} {t1 t2 u1 u2: Term} (p: ady S A (EqAssertion (PairTerm t1 t2) (PairTerm u1 u2))) (pin: In (AbstractablePositionSetAssertion S (EqAssertion (PairTerm t1 t2) (PairTerm u1 u2))) [0;0]) : ady S A (EqAssertion t1 u1)
+| aproj_pair_right {S: TermSet} {A: AssertionSet} {t1 t2 u1 u2: Term} (p: ady S A (EqAssertion (PairTerm t1 t2) (PairTerm u1 u2)))  (pin: In (AbstractablePositionSetAssertion S (EqAssertion (PairTerm t1 t2) (PairTerm u1 u2))) [0;1]) : ady S A (EqAssertion t2 u2)
+                                   
+          
+| aproj_privenc_term {S: TermSet} {A: AssertionSet} {k1 k2: Name} {t1 t2: Term} (p: ady S A (EqAssertion (PrivEncTerm t1 k2) (PrivEncTerm t2 k2))) (pin: In (AbstractablePositionSetAssertion S (EqAssertion (PrivEncTerm t1 k2) (PrivEncTerm t2 k2))) [0;0]): ady S A (EqAssertion t1 t2)
+| aproj_privenc_key {S: TermSet} {A: AssertionSet} {k1 k2: Name} {t1 t2: Term} (p: ady S A (EqAssertion (PrivEncTerm t1 k2) (PrivEncTerm t2 k2))) (pin: In (AbstractablePositionSetAssertion S (EqAssertion (PrivEncTerm t1 k2) (PrivEncTerm t2 k2))) [0;1]): ady S A (EqAssertion (PrivKeyTerm k1) (PrivKeyTerm k2))                                                                                 
+                                                                                
+| aproj_pubenc_term {S: TermSet} {A: AssertionSet} {k1 k2: Name} {t1 t2: Term} (p: ady S A (EqAssertion (PubEncTerm t1 k2) (PubEncTerm t2 k2))) (pin: In (AbstractablePositionSetAssertion S (EqAssertion (PubEncTerm t1 k2) (PubEncTerm t2 k2)) ) [0;0]): ady S A (EqAssertion t1 t2)
+| aproj_pubenc_key {S: TermSet} {A: AssertionSet} {k1 k2: Name} {t1 t2: Term} (p: ady S A (EqAssertion (PubEncTerm t1 k2) (PubEncTerm t2 k2))) (pin: In (AbstractablePositionSetAssertion S (EqAssertion (PubEncTerm t1 k2) (PubEncTerm t2 k2))) [0;1]): ady S A (EqAssertion (PubKeyTerm k1) (PubKeyTerm k2))                        
+
+| aand_intro {S: TermSet} {A: AssertionSet} {a1 a2: Assertion} (p1: ady S A a1) (p2: ady S A a2): ady S A (AndAssertion a1 a2)
+| aand_elim_left {S: TermSet} {A: AssertionSet} {a1 a2: Assertion} (p: ady S A (AndAssertion a1 a2)): ady S A a1
+| aand_elim_right {S: TermSet} {A: AssertionSet} {a1 a2: Assertion} (p: ady S A (AndAssertion a1 a2)): ady S A a2
+
+| asubst {S: TermSet} {A: Assertion} {t u: Term} {l: list Term} (proofMember: ady S A (MemberAssertion t l)) (proofEq: ady S A (EqAssertion t u)): ady S A (MemberAssertion u l)
+| aexists_intro {S: TermSet} {A: Assertion} {a: Term -> Prop} {x: Var} {t: Term} (truth: ady S A (a t)) (witness: dy S t) (derivability: Included (AssertionTermPositionSet (a (VarTerm x)) (VarTerm x)) (AbstractablePositionSetAssertion (Union S (Singleton (VarTerm x))) (a (VarTerm x)))): ady S A (ExistsAssertion a x)
+
+| aexists_elim {S: TermSet} {A: AssertionSet} {x y: Var} {afun: Term -> Assertion} {G: Assertion} (proofExists: ady S A (ExistsAssertion afun x)) (proofDerivable: ady (Union S (Singleton (VarTerm y))) A G) (proofFV: In (Union (FVSetTermSet S) (Union (FVSetAssertionSet A) (FVSetAssertionGamma))) y -> False) : ady S A G
+| asay {S: TermSet} {A: AssertionSet} {a: Assertion} {k: Name} (proof1: ady S A a) (proof2: dy S (PrivKeyTerm k)): ady S A (SaysAssertion k a)
+| aprom {S: TermSet} {A: AssertionSet} {t n: Term} (proof: ady S A (MemberAssertion t [n])) : ady S A (EqAssertion t n)
+
+(*with ValidIntPremiseList: TermSet -> AssertionSet -> Term -> list Term -> Type:=
+  with ValidWkPremiseList: TermSet -> AssertionSet -> list Term -> Type:=*)
+with ValidTransEqPremiseList: TermSet -> AssertionSet -> Term -> Term -> Type:=
+| TwoTrans {S: TermSet} {A: AssertionSet} {t1 t2 t3: Term} (p1: ady S A (EqAssertion t1 t2)) (p2: ady S A (EqAssertion t2 t3)): ValidTransEqProofList S A t1 t3
+| TransTrans {S: TermSet} {A: AssertionSet} {t1 t tk tk': Term} (phead: ady S A (EqAssertion t tk)) (plist: ValidTransEqProofList S A tk tk'): ValidTransEqProofList S A t1 tk'.
+
+
+
+                                                                                                                         
