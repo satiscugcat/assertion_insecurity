@@ -595,24 +595,10 @@ Inductive AbstractablePositionSetAssertion: TermSet -> Assertion -> Ensemble (li
 | AbsAssertionSaysAss1 {S: TermSet} (k: Name) {a: Assertion} {pos: list nat} (proof: In (AbstractablePositionSetAssertion S a) pos): In (AbstractablePositionSetAssertion S (SaysAssertion k a)) (1::pos).
 
 Check bool.
-Definition TermEqualityDecidability: forall (t1 t2 : Term), {t1 = t2} + {t1 <> t2}.
-Admitted.
-
-
-
-  
-Fixpoint inList {A: Type} (eqdec: forall (t1 t2: A), {t1 = t2} + {t1 <> t2}) (haystack: list A) (needle: A): bool :=
-  match haystack with
-  | [] => false
-  | hd::tl => if eqdec hd needle then true else (inList eqdec tl needle)
-  end.
-
-Fixpoint ListIntersection {A: Type} (l1 l2: list A) : list A:=
-  match l1 with
-  | [] => []
-  | hd::tl => if (inList l2 hd) then hd::(ListIntersection tl l2) else ListIntersection tl l2
-  end.
-
+Inductive ListIntersection {A: Type}: list A -> list A -> list A -> Prop :=
+| ListIntersectionNull (l: list A): ListIntersection [] l []
+| ListIntersectionNewWin {hd: A} {tl l intersect: list A} (proofIntersect: ListIntersection tl l intersect) (proof: List.In hd l /\ (List.In hd intersect -> False)): ListIntersection (hd::tl) l (hd::intersect)
+| ListIntersectionNewFail {hd: A} {tl l intersect: list A} (proofIntersect: ListIntersection tl l intersect) (proof: (List.In hd l -> False)\/ List.In hd intersect ): ListIntersection (hd::tl) l intersect.
 Inductive ady: TermSet -> AssertionSet -> Assertion -> Type :=
 | aax (S: TermSet) {A: AssertionSet} {alpha: Assertion} (proof: In A alpha): ady S A alpha
                                                                                  
@@ -640,18 +626,23 @@ Inductive ady: TermSet -> AssertionSet -> Assertion -> Type :=
 | aand_elim_left {S: TermSet} {A: AssertionSet} {a1 a2: Assertion} (p: ady S A (AndAssertion a1 a2)): ady S A a1
 | aand_elim_right {S: TermSet} {A: AssertionSet} {a1 a2: Assertion} (p: ady S A (AndAssertion a1 a2)): ady S A a2
 
-| asubst {S: TermSet} {A: Assertion} {t u: Term} {l: list Term} (proofMember: ady S A (MemberAssertion t l)) (proofEq: ady S A (EqAssertion t u)): ady S A (MemberAssertion u l)
-| aexists_intro {S: TermSet} {A: Assertion} {a: Term -> Prop} {x: Var} {t: Term} (truth: ady S A (a t)) (witness: dy S t) (derivability: Included (AssertionTermPositionSet (a (VarTerm x)) (VarTerm x)) (AbstractablePositionSetAssertion (Union S (Singleton (VarTerm x))) (a (VarTerm x)))): ady S A (ExistsAssertion a x)
+| asubst {S: TermSet} {A: AssertionSet} {t u: Term} {l: list Term} (proofMember: ady S A (MemberAssertion t l)) (proofEq: ady S A (EqAssertion t u)): ady S A (MemberAssertion u l)
+| aexists_intro {S: TermSet} {A: AssertionSet} {a: Term -> Assertion} {x: Var} {t: Term} (truth: ady S A (a t)) (witness: dy S t) (derivability: Included (AssertionTermPositionSet (a (VarTerm x)) (VarTerm x)) (AbstractablePositionSetAssertion (Union S (Singleton (VarTerm x))) (a (VarTerm x)))): ady S A (ExistsAssertion a x)
 
-| aexists_elim {S: TermSet} {A: AssertionSet} {x y: Var} {afun: Term -> Assertion} {G: Assertion} (proofExists: ady S A (ExistsAssertion afun x)) (proofDerivable: ady (Union S (Singleton (VarTerm y))) A G) (proofFV: In (Union (FVSetTermSet S) (Union (FVSetAssertionSet A) (FVSetAssertionGamma))) y -> False) : ady S A G
+| aexists_elim {S: TermSet} {A: AssertionSet} {x y: Var} {afun: Term -> Assertion} {G: Assertion} (proofExists: ady S A (ExistsAssertion afun x)) (proofDerivable: ady (Union S (Singleton (VarTerm y))) A G) (proofFV: In (Union (FVSetTermSet S) (Union (FVSetAssertionSet A) (FVSetAssertion G))) y -> False) : ady S A G
 | asay {S: TermSet} {A: AssertionSet} {a: Assertion} {k: Name} (proof1: ady S A a) (proof2: dy S (PrivKeyTerm k)): ady S A (SaysAssertion k a)
 | aprom {S: TermSet} {A: AssertionSet} {t n: Term} (proof: ady S A (MemberAssertion t [n])) : ady S A (EqAssertion t n)
-
-(*with ValidIntPremiseList: TermSet -> AssertionSet -> Term -> list Term -> Type:=
-  with ValidWkPremiseList: TermSet -> AssertionSet -> list Term -> Type:=*)
+| aint {S: TermSet} {A: AssertionSet} {t: Term} {l: list Term} (premises: ValidIntPremiseList S A t l): ady S A (MemberAssertion t l)
+| awk {S: TermSet} {A: AssertionSet} {t n: Term} {nlist: list Term} (proofEq: ady S A (EqAssertion t n)) (proofIn: List.In n nlist) (proofValid: DerivableTermsList S nlist): ady S A (MemberAssertion t nlist)                                                           
+with ValidIntPremiseList: TermSet -> AssertionSet -> Term -> list Term -> Type:=
+| TwoLists {S: TermSet} {A: AssertionSet} {t: Term} {l1 l2 intersect: list Term} (proofIntersect: ListIntersection l1 l2 intersect) (proof1: ady S A (MemberAssertion t l1)) (proof2: ady S A (MemberAssertion t l2)): ValidIntPremiseList S A t intersect
+| NewList {S: TermSet} {A: AssertionSet} {t: Term} {l1 intersect intersectl1: list Term} (proofIntersect: ListIntersection l1 intersect intersectl1) (proof1: ady S A (MemberAssertion t l1)) (proof2: ValidIntPremiseList S A t intersect): ValidIntPremiseList S A t intersectl1
+with DerivableTermsList: TermSet -> list Term -> Type:=
+| SingleDerivable {S: TermSet} {t: Term} (proof: dy S t): DerivableTermsList S [t]
+| NewDerivable {S: TermSet} {t: Term} {tlist: list Term} (proofNew: dy S t) (proofList: DerivableTermsList S tlist): DerivableTermsList S (t::tlist)
 with ValidTransEqPremiseList: TermSet -> AssertionSet -> Term -> Term -> Type:=
-| TwoTrans {S: TermSet} {A: AssertionSet} {t1 t2 t3: Term} (p1: ady S A (EqAssertion t1 t2)) (p2: ady S A (EqAssertion t2 t3)): ValidTransEqProofList S A t1 t3
-| TransTrans {S: TermSet} {A: AssertionSet} {t1 t tk tk': Term} (phead: ady S A (EqAssertion t tk)) (plist: ValidTransEqProofList S A tk tk'): ValidTransEqProofList S A t1 tk'.
+| TwoTrans {S: TermSet} {A: AssertionSet} {t1 t2 t3: Term} (p1: ady S A (EqAssertion t1 t2)) (p2: ady S A (EqAssertion t2 t3)): ValidTransEqPremiseList S A t1 t3
+| TransTrans {S: TermSet} {A: AssertionSet} {t1 t tk tk': Term} (phead: ady S A (EqAssertion t tk)) (plist: ValidTransEqPremiseList S A tk tk'): ValidTransEqPremiseList S A t1 tk'.
 
 
 
