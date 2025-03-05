@@ -1,4 +1,5 @@
 Set Warnings "-notation-overridden,-parsing,-deprecated-hint-without-locality".
+From Coq Require Import Program.Wf.
 From Coq Require Import Bool.Bool.
 From Coq Require Import Program.Equality.
 From Coq Require Import Lists.List. Import ListNotations.
@@ -17,8 +18,10 @@ Arguments Included {U}.
 Arguments Empty_set {U}.
 Arguments cons {A}.
 
-Definition Var: Type := nat.
-Definition Name: Type:= nat.
+Inductive Var: Type :=  VarConstructor (n: nat): Var.
+
+Inductive Name: Type:=  NameConstructor (n: nat): Name.
+
 Fixpoint nAryFun (n: nat) (A: Type) (B: Type) : Type :=
   match n with
   | 0 => B
@@ -617,9 +620,9 @@ Inductive ady: TermSet -> AssertionSet -> Assertion -> Type :=
                                    
           
 | aproj_privenc_term {S: TermSet} {A: AssertionSet} {k1 k2: Name} {t1 t2: Term} (p: ady S A (EqAssertion (PrivEncTerm t1 k2) (PrivEncTerm t2 k2))) (pin: In (AbstractablePositionSetAssertion S (EqAssertion (PrivEncTerm t1 k2) (PrivEncTerm t2 k2))) [0;0]): ady S A (EqAssertion t1 t2)
-| aproj_privenc_key {S: TermSet} {A: AssertionSet} {k1 k2: Name} {t1 t2: Term} (p: ady S A (EqAssertion (PrivEncTerm t1 k2) (PrivEncTerm t2 k2))) (pin: In (AbstractablePositionSetAssertion S (EqAssertion (PrivEncTerm t1 k2) (PrivEncTerm t2 k2))) [0;1]): ady S A (EqAssertion (PrivKeyTerm k1) (PrivKeyTerm k2))                                                                                 
+| aproj_privenc_key {S: TermSet} {A: AssertionSet} {k1 k2: Name} {t1 t2: Term} (p: ady S A (EqAssertion (PrivEncTerm t1 k2) (PrivEncTerm t2 k2))) (pin: In (AbstractablePositionSetAssertion S (EqAssertion (PrivEncTerm t1 k1) (PrivEncTerm t2 k2))) [0;1]): ady S A (EqAssertion (PrivKeyTerm k1) (PrivKeyTerm k2))                                                                                 
                                                                                 
-| aproj_pubenc_term {S: TermSet} {A: AssertionSet} {k1 k2: Name} {t1 t2: Term} (p: ady S A (EqAssertion (PubEncTerm t1 k2) (PubEncTerm t2 k2))) (pin: In (AbstractablePositionSetAssertion S (EqAssertion (PubEncTerm t1 k2) (PubEncTerm t2 k2)) ) [0;0]): ady S A (EqAssertion t1 t2)
+| aproj_pubenc_term {S: TermSet} {A: AssertionSet} {k1 k2: Name} {t1 t2: Term} (p: ady S A (EqAssertion (PubEncTerm t1 k2) (PubEncTerm t2 k2))) (pin: In (AbstractablePositionSetAssertion S (EqAssertion (PubEncTerm t1 k1) (PubEncTerm t2 k2)) ) [0;0]): ady S A (EqAssertion t1 t2)
 | aproj_pubenc_key {S: TermSet} {A: AssertionSet} {k1 k2: Name} {t1 t2: Term} (p: ady S A (EqAssertion (PubEncTerm t1 k2) (PubEncTerm t2 k2))) (pin: In (AbstractablePositionSetAssertion S (EqAssertion (PubEncTerm t1 k2) (PubEncTerm t2 k2))) [0;1]): ady S A (EqAssertion (PubKeyTerm k1) (PubKeyTerm k2))                        
 
 | aand_intro {S: TermSet} {A: AssertionSet} {a1 a2: Assertion} (p1: ady S A a1) (p2: ady S A a2): ady S A (AndAssertion a1 a2)
@@ -642,8 +645,150 @@ with DerivableTermsList: TermSet -> list Term -> Type:=
 | NewDerivable {S: TermSet} {t: Term} {tlist: list Term} (proofNew: dy S t) (proofList: DerivableTermsList S tlist): DerivableTermsList S (t::tlist)
 with ValidTransEqPremiseList: TermSet -> AssertionSet -> Term -> Term -> Type:=
 | TwoTrans {S: TermSet} {A: AssertionSet} {t1 t2 t3: Term} (p1: ady S A (EqAssertion t1 t2)) (p2: ady S A (EqAssertion t2 t3)): ValidTransEqPremiseList S A t1 t3
-| TransTrans {S: TermSet} {A: AssertionSet} {t1 t tk tk': Term} (phead: ady S A (EqAssertion t tk)) (plist: ValidTransEqPremiseList S A tk tk'): ValidTransEqPremiseList S A t1 tk'.
+| TransTrans {S: TermSet} {A: AssertionSet} {t1 tk tk': Term} (phead: ady S A (EqAssertion t1 tk)) (plist: ValidTransEqPremiseList S A tk tk'): ValidTransEqPremiseList S A t1 tk'.
 
+
+Definition isAtomic (a: Assertion) : bool :=
+  match a with
+  | EqAssertion _ _ => true
+  | NAryAssertion _ _ _=> true
+  | MemberAssertion _ _ => true
+  | SaysAssertion _ _ => true
+  | _ => false
+  end.
 
 
                                                                                                                          
+Inductive eq_ady: TermSet -> AssertionSet -> Assertion -> Type :=
+| eq_aax (S: TermSet) {A: AssertionSet} {alpha: Assertion} (proof: In A alpha): eq_ady S A alpha
+                                                                                 
+| eq_aeq {S: TermSet} (A: AssertionSet) {t: Term} (proof: dy S t) : eq_ady S A (EqAssertion t t)
+                                                                     
+| eq_acons_pair {S: TermSet} {A: AssertionSet} {t1 t2 u1 u2: Term} (p1: eq_ady S A (EqAssertion t1 u1)) (p2: eq_ady S A (EqAssertion t2 u2)): eq_ady S A (EqAssertion (PairTerm t1 t2) (PairTerm u1 u2))
+| eq_acons_privkey {S: TermSet} {A: AssertionSet} {t1 t2: Term} {k1 k2: Name} (p1: eq_ady S A (EqAssertion t1 t2)) (p2: eq_ady S A (EqAssertion (PrivKeyTerm k1) (PrivKeyTerm k2))): eq_ady S A (EqAssertion (PrivEncTerm t1 k1) (PrivEncTerm t2 k2))
+| eq_acons_pubkey {S: TermSet} {A: AssertionSet} {t1 t2: Term} {k1 k2: Name} (p1: eq_ady S A (EqAssertion t1 t2)) (p2: eq_ady S A (EqAssertion (PubKeyTerm k1) (PubKeyTerm k2))): eq_ady S A (EqAssertion (PubEncTerm t1 k1) (PubEncTerm t2 k2))
+
+| eq_asym {S: TermSet} {A: AssertionSet} {t u: Term} (p: eq_ady S A (EqAssertion t u)) : eq_ady S A (EqAssertion u t)
+
+| eq_atrans {S: TermSet} {A: AssertionSet} {t1 tk: Term} (p: Eq_ValidTransEqPremiseList S A t1 tk): eq_ady S A (EqAssertion t1 tk)
+
+| eq_aproj_pair_left {S: TermSet} {A: AssertionSet} {t1 t2 u1 u2: Term} (p: eq_ady S A (EqAssertion (PairTerm t1 t2) (PairTerm u1 u2))) (pin: In (AbstractablePositionSetAssertion S (EqAssertion (PairTerm t1 t2) (PairTerm u1 u2))) [0;0]) : eq_ady S A (EqAssertion t1 u1)
+| eq_aproj_pair_right {S: TermSet} {A: AssertionSet} {t1 t2 u1 u2: Term} (p: eq_ady S A (EqAssertion (PairTerm t1 t2) (PairTerm u1 u2)))  (pin: In (AbstractablePositionSetAssertion S (EqAssertion (PairTerm t1 t2) (PairTerm u1 u2))) [0;1]) : eq_ady S A (EqAssertion t2 u2)
+                                   
+          
+| eq_aproj_privenc_term {S: TermSet} {A: AssertionSet} {k1 k2: Name} {t1 t2: Term} (p: eq_ady S A (EqAssertion (PrivEncTerm t1 k2) (PrivEncTerm t2 k2))) (pin: In (AbstractablePositionSetAssertion S (EqAssertion (PrivEncTerm t1 k1) (PrivEncTerm t2 k2))) [0;0]): eq_ady S A (EqAssertion t1 t2)
+| eq_aproj_privenc_key {S: TermSet} {A: AssertionSet} {k1 k2: Name} {t1 t2: Term} (p: eq_ady S A (EqAssertion (PrivEncTerm t1 k2) (PrivEncTerm t2 k2))) (pin: In (AbstractablePositionSetAssertion S (EqAssertion (PrivEncTerm t1 k2) (PrivEncTerm t2 k2))) [0;1]): eq_ady S A (EqAssertion (PrivKeyTerm k1) (PrivKeyTerm k2))                                                                                 
+                                                                                
+| eq_aproj_pubenc_term {S: TermSet} {A: AssertionSet} {k1 k2: Name} {t1 t2: Term} (p: eq_ady S A (EqAssertion (PubEncTerm t1 k2) (PubEncTerm t2 k2))) (pin: In (AbstractablePositionSetAssertion S (EqAssertion (PubEncTerm t1 k1) (PubEncTerm t2 k2)) ) [0;0]): eq_ady S A (EqAssertion t1 t2)
+| eq_aproj_pubenc_key {S: TermSet} {A: AssertionSet} {k1 k2: Name} {t1 t2: Term} (p: eq_ady S A (EqAssertion (PubEncTerm t1 k2) (PubEncTerm t2 k2))) (pin: In (AbstractablePositionSetAssertion S (EqAssertion (PubEncTerm t1 k2) (PubEncTerm t2 k2))) [0;1]): eq_ady S A (EqAssertion (PubKeyTerm k1) (PubKeyTerm k2))                        
+
+
+| eq_asubst {S: TermSet} {A: AssertionSet} {t u: Term} {l: list Term} (proofMember: eq_ady S A (MemberAssertion t l)) (proofEq: eq_ady S A (EqAssertion t u)): eq_ady S A (MemberAssertion u l)
+
+| eq_aprom {S: TermSet} {A: AssertionSet} {t n: Term} (proof: eq_ady S A (MemberAssertion t [n])) : eq_ady S A (EqAssertion t n)
+| eq_aint {S: TermSet} {A: AssertionSet} {t: Term} {l: list Term} (premises: Eq_ValidIntPremiseList S A t l): eq_ady S A (MemberAssertion t l)
+| eq_awk {S: TermSet} {A: AssertionSet} {t n: Term} {nlist: list Term} (proofEq: eq_ady S A (EqAssertion t n)) (proofIn: List.In n nlist) (proofValid: DerivableTermsList S nlist): eq_ady S A (MemberAssertion t nlist)                                                           
+with Eq_ValidIntPremiseList: TermSet -> AssertionSet -> Term -> list Term -> Type:=
+| Eq_TwoLists {S: TermSet} {A: AssertionSet} {t: Term} {l1 l2 intersect: list Term} (proofIntersect: ListIntersection l1 l2 intersect) (proof1: eq_ady S A (MemberAssertion t l1)) (proof2: eq_ady S A (MemberAssertion t l2)): Eq_ValidIntPremiseList S A t intersect
+| Eq_NewList {S: TermSet} {A: AssertionSet} {t: Term} {l1 intersect intersectl1: list Term} (proofIntersect: ListIntersection l1 intersect intersectl1) (proof1: eq_ady S A (MemberAssertion t l1)) (proof2: Eq_ValidIntPremiseList S A t intersect): Eq_ValidIntPremiseList S A t intersectl1
+                                                                                                                                                                                                                                                                             
+with Eq_DerivableTermsList: TermSet -> list Term -> Type:=
+| Eq_SingleDerivable {S: TermSet} {t: Term} (proof: dy S t): Eq_DerivableTermsList S [t]
+| Eq_NewDerivable {S: TermSet} {t: Term} {tlist: list Term} (proofNew: dy S t) (proofList: Eq_DerivableTermsList S tlist): Eq_DerivableTermsList S (t::tlist)
+                                                                                                                                                 
+with Eq_ValidTransEqPremiseList: TermSet -> AssertionSet -> Term -> Term -> Type:=
+| Eq_TwoTrans {S: TermSet} {A: AssertionSet} {t1 t2 t3: Term} (p1: eq_ady S A (EqAssertion t1 t2)) (p2: eq_ady S A (EqAssertion t2 t3)): Eq_ValidTransEqPremiseList S A t1 t3
+| Eq_TransTrans {S: TermSet} {A: AssertionSet} {t1 tk tk': Term} (phead: eq_ady S A (EqAssertion t1 tk)) (plist: Eq_ValidTransEqPremiseList S A tk tk'): Eq_ValidTransEqPremiseList S A t1 tk'.
+
+
+Definition term_eq_dec : forall (x y : Term), { x = y } + { x <> y }.
+Proof.
+decide equality; decide equality; decide equality.
+Defined.
+
+Fixpoint foldrEqIntList {X: Type} {S: TermSet} {A: AssertionSet} {t: Term} {tl: list Term} (f:forall (S': TermSet) (A': AssertionSet) (t': Term) (tl': list Term), eq_ady S' A' (MemberAssertion t' tl') -> X -> X) (l: Eq_ValidIntPremiseList S A t tl) (initial: X): X:=
+  match l with
+  | @Eq_TwoLists S' A t l1 l2 intersect pI p1 p2 => (f S' A t l1 p1 (f S' A t l2 p2 initial))
+  | @Eq_NewList S' A t l1 i il1 pI p1 pL => (f S' A t l1 p1 (foldrEqIntList f  pL initial))
+  end.
+
+
+Fixpoint foldrEqDerivableTermsList {X: Type} {S: TermSet} {tl: list Term} (f: forall (S': TermSet) (t: Term), dy S' t -> X -> X) (fuel: Eq_DerivableTermsList S tl) (ember: X) : X :=
+  match fuel with
+  | @Eq_SingleDerivable S' t proof => f S' t proof ember
+  | @Eq_NewDerivable S' t tlist proofNew proofList => f S' t proofNew (foldrEqDerivableTermsList f proofList ember)
+  end.
+
+Fixpoint foldrEqTransList {X: Type} {S: TermSet} {A: AssertionSet} {t1: Term} {tn: Term} (f: forall (S': TermSet) (A': AssertionSet) (t1: Term) (t2: Term), eq_ady S' A' (EqAssertion t1 t2) -> X -> X) (fuel: Eq_ValidTransEqPremiseList S A t1 tn) (ember: X) : X :=
+  match fuel with
+  | @Eq_TwoTrans S' A t1 t2 t3 p1 p2 => f S' A t1 t2 p1 (f S' A t2 t3 p2 ember)
+  | @Eq_TransTrans S' A t1 tk tk' phead plist => f S' A t1 tk phead (foldrEqTransList f plist ember)
+  end
+.
+Definition containsReflexiveTrans {S: TermSet} {A: AssertionSet} {a1 a2: Term} (l: Eq_ValidTransEqPremiseList S A a1 a2): bool := foldrEqTransList (fun (S': TermSet) (A': AssertionSet) (t1 t2: Term)  (proof: eq_ady S' A' (EqAssertion t1 t2))  (thing: bool) => if term_eq_dec t1 t2 then true else thing) l false.
+
+
+Definition isCons {S: TermSet} {A: AssertionSet} {a: Assertion} (p: eq_ady S A a) :bool :=
+  match p with
+  | eq_acons_pair _ _=> true
+  | eq_acons_privkey _ _=> true
+  | eq_acons_pubkey _ _=> true
+  | _ => false
+  end.
+
+
+Fixpoint adjacentSafe {S: TermSet} {A: AssertionSet} {a1 a2: Term} (l: Eq_ValidTransEqPremiseList S A a1 a2): bool :=
+  match l with
+  | Eq_TwoTrans p1 p2 => negb (andb (isCons p1) (isCons p2))
+  | Eq_TransTrans phead ptail => andb (negb (andb (isCons phead) match ptail with | Eq_TwoTrans p2 _ => (isCons p2) | Eq_TransTrans p2 _ => (isCons p2) end)) (adjacentSafe ptail)
+  end.
+
+
+Definition intPremiseSafe {S: TermSet} {A: AssertionSet} {t: Term} {l: list Term} (premises: Eq_ValidIntPremiseList S A t l): bool :=
+  foldrEqIntList
+    (fun (S': TermSet) (A': AssertionSet) (t': Term) (tl': list Term) (proof: eq_ady S' A' (MemberAssertion t' tl')) (fire: bool) => match proof with | eq_aint _ => false | eq_awk _ _ _ => false | _ => fire end)
+    premises
+    true.
+
+
+Program Fixpoint foldEqAdyProof {X: Type} {S: TermSet} {A: AssertionSet} {a: Assertion}  (f : forall (S': TermSet) (A': AssertionSet) (a': Assertion), eq_ady S' A' a' -> X -> X) (assertionProof: eq_ady S A a) (default: X): X :=
+  f S A a assertionProof
+  match assertionProof with
+  | @eq_aax _ _ _ _ => default
+  | @eq_aeq _ _ _ _ => default
+  | @eq_acons_pair _ _ _ _ _ _ p1 p2 => foldEqAdyProof f p1 (foldEqAdyProof f p2 default)
+  | @eq_acons_privkey _ _ _ _ _ _ p1 p2 => foldEqAdyProof f p1 (foldEqAdyProof f p2 default)
+  | @eq_acons_pubkey _ _ _ _ _ _ p1 p2 => foldEqAdyProof f p1 (foldEqAdyProof f p2 default)
+  | @eq_asym _ _ _ _ p => foldEqAdyProof f p default
+  | @eq_atrans _ _ _ _ prooflist =>
+      foldrEqTransList
+        (fun (S'': TermSet) (A'': AssertionSet) (t t': Term) (proof: eq_ady S'' A'' (EqAssertion t t')) (thing: X) => foldEqAdyProof f proof thing)
+        prooflist
+        default
+  | @eq_aproj_pair_left _ _ _ _ _ _ p _ => foldEqAdyProof f p default
+  | @eq_aproj_pair_right _ _ _ _ _ _ p _ => foldEqAdyProof f p default
+  | @eq_aproj_privenc_term _ _ _ _ _ _ p _ => foldEqAdyProof f p default
+  | @eq_aproj_privenc_key _ _ _ _ _ _ p _ => foldEqAdyProof f p default
+  | @eq_aproj_pubenc_term _ _ _ _ _ _ p _ => foldEqAdyProof f p default
+  | @eq_aproj_pubenc_key _ _ _ _ _ _ p _ => foldEqAdyProof f p default
+  | @eq_asubst _ _ _ _ _ p1 p2 => foldEqAdyProof f p1 (foldEqAdyProof f p2 default)
+  | @eq_aprom _ _ _ _ p => foldEqAdyProof f p default
+  | @eq_aint _ _ _ _ prooflist =>
+      foldrEqIntList
+        (fun (S': TermSet) (A': AssertionSet) (t': Term) (tl': list Term) (proof: eq_ady S' A' (MemberAssertion t' tl')) (thing: X) => foldEqAdyProof f proof thing)
+        prooflist
+        default
+  | @eq_awk _ _ _ _ _ p _ _ => foldEqAdyProof f p default
+  end.
+ 
+(*
+Fixpoint isNormalEqAssertionProof {S: TermSet} {A: AssertionSet} {a: Assertion} (proof: eq_ady S A a): bool :=
+  match proof with
+  | eq_aax _ _ => true
+  | eq_aeq _ proof => andb  match proof with | ax _ => true | splitL _ => true | splitR _ => true | sdec _ _ => true | adec _ _ => true | _ => false end (isNormal proof)
+  | eq_asym p => match p with | eq_aax _ _ => true | eq_aprom _ => true | _ => false end
+  | @eq_atrans _ _ t1 tk l => andb (negb (notb containsReflexiveTrans l) (if term_eq_dec t1 tk then false else true)) (adjacentSafe l)
+  | eq_int premises => (intPremiseSafe premises)
+  end
+.
+*)
