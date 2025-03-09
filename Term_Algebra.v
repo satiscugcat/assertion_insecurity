@@ -751,36 +751,52 @@ Definition intPremiseSafe {S: TermSet} {A: AssertionSet} {t: Term} {l: list Term
     true.
 
 
-Program Fixpoint foldEqAdyProof {X: Type} {S: TermSet} {A: AssertionSet} {a: Assertion}  (f : forall (S': TermSet) (A': AssertionSet) (a': Assertion), eq_ady S' A' a' -> X -> X) (assertionProof: eq_ady S A a) (default: X): X :=
-  f S A a assertionProof
-  match assertionProof with
-  | @eq_aax _ _ _ _ => default
-  | @eq_aeq _ _ _ _ => default
-  | @eq_acons_pair _ _ _ _ _ _ p1 p2 => foldEqAdyProof f p1 (foldEqAdyProof f p2 default)
-  | @eq_acons_privkey _ _ _ _ _ _ p1 p2 => foldEqAdyProof f p1 (foldEqAdyProof f p2 default)
-  | @eq_acons_pubkey _ _ _ _ _ _ p1 p2 => foldEqAdyProof f p1 (foldEqAdyProof f p2 default)
-  | @eq_asym _ _ _ _ p => foldEqAdyProof f p default
-  | @eq_atrans _ _ _ _ prooflist =>
-      foldrEqTransList
-        (fun (S'': TermSet) (A'': AssertionSet) (t t': Term) (proof: eq_ady S'' A'' (EqAssertion t t')) (thing: X) => foldEqAdyProof f proof thing)
-        prooflist
-        default
-  | @eq_aproj_pair_left _ _ _ _ _ _ p _ => foldEqAdyProof f p default
-  | @eq_aproj_pair_right _ _ _ _ _ _ p _ => foldEqAdyProof f p default
-  | @eq_aproj_privenc_term _ _ _ _ _ _ p _ => foldEqAdyProof f p default
-  | @eq_aproj_privenc_key _ _ _ _ _ _ p _ => foldEqAdyProof f p default
-  | @eq_aproj_pubenc_term _ _ _ _ _ _ p _ => foldEqAdyProof f p default
-  | @eq_aproj_pubenc_key _ _ _ _ _ _ p _ => foldEqAdyProof f p default
-  | @eq_asubst _ _ _ _ _ p1 p2 => foldEqAdyProof f p1 (foldEqAdyProof f p2 default)
-  | @eq_aprom _ _ _ _ p => foldEqAdyProof f p default
-  | @eq_aint _ _ _ _ prooflist =>
-      foldrEqIntList
-        (fun (S': TermSet) (A': AssertionSet) (t': Term) (tl': list Term) (proof: eq_ady S' A' (MemberAssertion t' tl')) (thing: X) => foldEqAdyProof f proof thing)
-        prooflist
-        default
-  | @eq_awk _ _ _ _ _ p _ _ => foldEqAdyProof f p default
-  end.
- 
+
+Fixpoint foldEqAdyProof {X: Type} {S: TermSet} {A: AssertionSet} {a: Assertion}  (f : forall (S': TermSet) (A': AssertionSet) (a': Assertion), eq_ady S' A' a' -> X -> X) (assertionProof: eq_ady S A a) (default: X) {struct assertionProof}: X.
+
+Proof.
+  assert (nextValue : X). {
+  destruct assertionProof; try (apply (foldEqAdyProof _ _ _ _  f assertionProof1  (foldEqAdyProof _ _ _ _ f assertionProof2 default))); try (apply (foldEqAdyProof _ _ _ _ f assertionProof default)).
+  - apply default.
+  - apply default.
+  - induction p.
+    + apply (foldEqAdyProof _ _ _ _  f p1  (foldEqAdyProof _ _ _ _ f p2 default)).
+    + apply (foldEqAdyProof _ _ _ _ f phead IHp).
+  - induction premises.
+    + apply (foldEqAdyProof _ _ _ _  f proof1  (foldEqAdyProof _ _ _ _ f proof2 default)).
+    + apply (foldEqAdyProof _ _ _ _ f proof1 IHpremises).
+  } apply (f S A a assertionProof nextValue).
+Defined.
+
+Print foldEqAdyProof.
+(* Super Interesting !!!*)
+Module SanityCheck.
+  Inductive even_list : Type :=
+  | ENil : even_list
+  | ECons : nat -> odd_list -> even_list
+
+  with odd_list : Type :=
+  | OCons : nat -> even_list -> odd_list.
+
+  Fixpoint elength (el : even_list) : nat.
+  Proof.
+    destruct el.
+    - apply 0.
+    - induction o.
+      + apply (S (S n0)).
+  Defined.
+
+  Print elength.
+
+  Example ex1: (elength (ECons 0 (OCons 0 (ENil)))) = 2.
+  Proof.
+    simpl. reflexivity.
+  Qed.
+End SanityCheck.
+
+
+
+
 (*
 Fixpoint isNormalEqAssertionProof {S: TermSet} {A: AssertionSet} {a: Assertion} (proof: eq_ady S A a): bool :=
   match proof with
