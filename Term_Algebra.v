@@ -687,7 +687,7 @@ Inductive eq_ady: TermSet -> AssertionSet -> Assertion -> Type :=
 
 | eq_aprom {S: TermSet} {A: AssertionSet} {t n: Term} (proof: eq_ady S A (MemberAssertion t [n])) : eq_ady S A (EqAssertion t n)
 | eq_aint {S: TermSet} {A: AssertionSet} {t: Term} {l: list Term} (premises: Eq_ValidIntPremiseList S A t l): eq_ady S A (MemberAssertion t l)
-| eq_awk {S: TermSet} {A: AssertionSet} {t n: Term} {nlist: list Term} (proofEq: eq_ady S A (EqAssertion t n)) (proofIn: List.In n nlist) (proofValid: DerivableTermsList S nlist): eq_ady S A (MemberAssertion t nlist)                                                           
+| eq_awk {S: TermSet} {A: AssertionSet} {t n: Term} {nlist: list Term} (proofEq: eq_ady S A (EqAssertion t n)) (proofIn: List.In n nlist) (proofValid: Eq_DerivableTermsList S nlist): eq_ady S A (MemberAssertion t nlist)                                                           
 with Eq_ValidIntPremiseList: TermSet -> AssertionSet -> Term -> list Term -> Type:=
 | Eq_TwoLists {S: TermSet} {A: AssertionSet} {t: Term} {l1 l2 intersect: list Term} (proofIntersect: ListIntersection l1 l2 intersect) (proof1: eq_ady S A (MemberAssertion t l1)) (proof2: eq_ady S A (MemberAssertion t l2)): Eq_ValidIntPremiseList S A t intersect
 | Eq_NewList {S: TermSet} {A: AssertionSet} {t: Term} {l1 intersect intersectl1: list Term} (proofIntersect: ListIntersection l1 intersect intersectl1) (proof1: eq_ady S A (MemberAssertion t l1)) (proof2: Eq_ValidIntPremiseList S A t intersect): Eq_ValidIntPremiseList S A t intersectl1
@@ -769,7 +769,7 @@ Proof.
 Defined.
 
 Print foldEqAdyProof.
-(* Super Interesting !!!*)
+(* Super Interesting !!*)
 Module SanityCheck.
   Inductive even_list : Type :=
   | ENil : even_list
@@ -793,18 +793,126 @@ Module SanityCheck.
     simpl. reflexivity.
   Qed.
 End SanityCheck.
+(** The above is super interesting !!!!!*)
+
+(** The following is kept as an artifact.
+
+
+Program Fixpoint foldEqAdyProof {X: Type} {S: TermSet} {A: AssertionSet} {a: Assertion}  (f : forall (S': TermSet) (A': AssertionSet) (a': Assertion), eq_ady S' A' a' -> X -> X) (assertionProof: eq_ady S A a) (default: X) {struct assertionProof}: X :=
+  f S A a assertionProof
+  match assertionProof with
+  | @eq_aax _ _ _ _ => default
+  | @eq_aeq _ _ _ _ => default
+  | @eq_acons_pair _ _ _ _ _ _ p1 p2 => foldEqAdyProof f p1 (foldEqAdyProof f p2 default)
+  | @eq_acons_privkey _ _ _ _ _ _ p1 p2 => foldEqAdyProof f p1 (foldEqAdyProof f p2 default)
+  | @eq_acons_pubkey _ _ _ _ _ _ p1 p2 => foldEqAdyProof f p1 (foldEqAdyProof f p2 default)
+  | @eq_asym _ _ _ _ p => foldEqAdyProof f p default
+  | @eq_atrans _ _ _ _ prooflist =>
+      foldrEqTransList
+        (fun (S'': TermSet) (A'': AssertionSet) (t t': Term) (proof: eq_ady S'' A'' (EqAssertion t t')) (thing: X) => foldEqAdyProof f proof thing)
+        prooflist
+        default
+  | @eq_aproj_pair_left _ _ _ _ _ _ p _ => foldEqAdyProof f p default
+  | @eq_aproj_pair_right _ _ _ _ _ _ p _ => foldEqAdyProof f p default
+  | @eq_aproj_privenc_term _ _ _ _ _ _ p _ => foldEqAdyProof f p default
+  | @eq_aproj_privenc_key _ _ _ _ _ _ p _ => foldEqAdyProof f p default
+  | @eq_aproj_pubenc_term _ _ _ _ _ _ p _ => foldEqAdyProof f p default
+  | @eq_aproj_pubenc_key _ _ _ _ _ _ p _ => foldEqAdyProof f p default
+  | @eq_asubst _ _ _ _ _ p1 p2 => foldEqAdyProof f p1 (foldEqAdyProof f p2 default)
+  | @eq_aprom _ _ _ _ p => foldEqAdyProof f p default
+  | @eq_aint _ _ _ _ prooflist =>
+      foldrEqIntList
+        (fun (S'': TermSet) (A'': AssertionSet) (t': Term) (tl': list Term) (proof: eq_ady S'' A'' (MemberAssertion t' tl')) (thing: X) => foldEqAdyProof f proof thing)
+        prooflist
+        default
+  | @eq_awk _ _ _ _ _ p _ _ => foldEqAdyProof f p default
+  end.
+
+
+ *)
+
+
+Definition isNormalEqAssertionProof {S: TermSet} {A: AssertionSet} {a: Assertion} (proof: eq_ady S A a): bool.
+Proof.
+  assert (matcherFun: forall (S': TermSet) (A': AssertionSet) (a': Assertion), eq_ady S' A' a' -> bool). {
+    clear. intros S' A' a' proof'.
+    destruct proof'.
+    - apply true.
+    - apply (andb (isNormal proof)
+               match proof with
+               | pair _ _ => false
+               | senc _ _ => false
+               | aenc _ _ => false
+               | pk _ => false
+               | _ => true
+               end ).
+    - apply true.
+    - apply true.
+    - apply true.
+    - apply (match proof' with | eq_aax _ _ => true | eq_aprom _ => true | _ => false end).
+    - apply (andb (negb (containsReflexiveTrans p)) (adjacentSafe p)).
+    - 
+      apply (
+          foldEqAdyProof
+            (fun (S'': TermSet) (A'': AssertionSet) (a'': Assertion) (proof: eq_ady S'' A'' a'') (thing: bool) => andb (negb (isCons proof)) thing)
+            proof'
+            true).
+    -apply (
+         foldEqAdyProof
+           (fun (S'': TermSet) (A'': AssertionSet) (a'': Assertion) (proof: eq_ady S'' A'' a'') (thing: bool) => andb (negb (isCons proof)) thing)
+           proof'
+           true).
+    - apply (
+          foldEqAdyProof
+            (fun (S'': TermSet) (A'': AssertionSet) (a'': Assertion) (proof: eq_ady S'' A'' a'') (thing: bool) => andb (negb (isCons proof)) thing)
+            proof'
+            true).
+    - apply (
+          foldEqAdyProof
+            (fun (S'': TermSet) (A'': AssertionSet) (a'': Assertion) (proof: eq_ady S'' A'' a'') (thing: bool) => andb (negb (isCons proof)) thing)
+            proof'
+               true).
+    - apply (
+          foldEqAdyProof
+            (fun (S'': TermSet) (A'': AssertionSet) (a'': Assertion) (proof: eq_ady S'' A'' a'') (thing: bool) => andb (negb (isCons proof)) thing)
+            proof'
+            true).
+    - apply (
+          foldEqAdyProof
+            (fun (S'': TermSet) (A'': AssertionSet) (a'': Assertion) (proof: eq_ady S'' A'' a'') (thing: bool) => andb (negb (isCons proof)) thing)
+            proof'
+            true).
+    - apply true.
+    - apply true.
+    - 
+      apply (foldrEqIntList
+               (fun _ _ _ _ proof thing =>
+                  andb
+                    match proof with
+                    | eq_aint _ => false
+                    | eq_awk _ _ _ => false
+                    | _ => true
+                        
+                    end
+                    thing)
+               premises
+               true
+            ).
+    - 
+      apply (foldrEqDerivableTermsList
+               (fun _ _ proof thing => andb (isNormal proof) thing)
+               proofValid
+               true
+            ).
+  }
+  Check @foldEqAdyProof.
+  apply (foldEqAdyProof
+           (fun _ _ _ proof' thing => andb (matcherFun _ _ _ proof') thing)
+           proof
+           true
+        ).
+Qed.
 
 
 
-
-(*
-Fixpoint isNormalEqAssertionProof {S: TermSet} {A: AssertionSet} {a: Assertion} (proof: eq_ady S A a): bool :=
-  match proof with
-  | eq_aax _ _ => true
-  | eq_aeq _ proof => andb  match proof with | ax _ => true | splitL _ => true | splitR _ => true | sdec _ _ => true | adec _ _ => true | _ => false end (isNormal proof)
-  | eq_asym p => match p with | eq_aax _ _ => true | eq_aprom _ => true | _ => false end
-  | @eq_atrans _ _ t1 tk l => andb (negb (notb containsReflexiveTrans l) (if term_eq_dec t1 tk then false else true)) (adjacentSafe l)
-  | eq_int premises => (intPremiseSafe premises)
-  end
-.
-*)
+Print isNormalEqAssertionProof.
