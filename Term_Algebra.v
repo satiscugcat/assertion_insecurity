@@ -1,15 +1,15 @@
 Set Warnings "-notation-overridden,-parsing,-deprecated-hint-without-locality".
-From Coq Require Import Program.Wf.
-From Coq Require Import Bool.Bool.
-From Coq Require Import Program.Equality.
-From Coq Require Import Lists.List. Import ListNotations.
+From Stdlib Require Import Program.Wf.
+From Stdlib Require Import Bool.Bool.
+From Stdlib Require Import Program.Equality.
+From Stdlib Require Import Lists.List. Import ListNotations.
 (**
-From Coq Require Import Arith.Arith.
-From Coq Require Import Arith.EqNat. Import Nat.
+From Stdlib Require Import Arith.Arith.
+From Stdlib Require Import Arith.EqNat. Import Nat.
 **)
 Import Nat.
-From Coq Require Import Strings.String.
-From Coq Require Export Sets.Ensembles.
+From Stdlib Require Import Strings.String.
+From Stdlib Require Export Sets.Ensembles.
 
 Arguments In {U}.
 Arguments Union {U}.
@@ -567,16 +567,26 @@ Inductive AssertionTermPosition: Assertion -> Term -> list nat -> Prop :=
 | AssertionSaysKey0 (k: Name) (a: Assertion): AssertionTermPosition (SaysAssertion k a) (PubKeyTerm k) [0]
 | AssertionSaysAss1 {a: Assertion} (k: Name) {tsub: Term}{pos: list nat} (proof: AssertionTermPosition a tsub pos): AssertionTermPosition (SaysAssertion k a) tsub (1::pos).
 
+
+
+
 Inductive AssertionPositionSet: Assertion -> Ensemble (list nat) :=
 | AssertionPositionSetCons {a : Assertion} {pos: list nat} (proof: exists (t': Term), AssertionTermPosition a t' pos): In (AssertionPositionSet a) pos.
 
 Inductive AssertionTermPositionSet: Assertion -> Term -> Ensemble (list nat):=
-| AssertionTermPositionSetCons {a: Assertion} {t: Term} {pos: list nat} (proof: AssertionTermPosition a t pos): In (AssertionTermPositionSet a t) pos
-.
+| AssertionTermPositionSetCons {a: Assertion} {t: Term} {pos: list nat} (proof: AssertionTermPosition a t pos): In (AssertionTermPositionSet a t) pos.
 Inductive ProperPrefix: (list nat) -> (list nat) -> Prop :=
 | HeadPrefix (hd: nat) {tl: list nat} (nonempty: (tl = []) -> False) : ProperPrefix [hd] (hd::tl)
 | ConsPrefix (hd: nat) (tl1 tl2: list nat) (proof: ProperPrefix tl1 tl2) : ProperPrefix (hd::tl1) (hd::tl2).
 
+
+Definition AssertionSubTerm (a: Assertion) (t: Term) := exists (pos: list nat), AssertionTermPosition a t pos.
+Inductive AssertionSubTermSet (a: Assertion) : Ensemble Term :=
+| AssertionSubTermSetCons {t: Term} (p: AssertionSubTerm a t) : In (AssertionSubTermSet a) t.
+Inductive AssertionSetSubTermSet (A: AssertionSet) : Ensemble Term :=
+| AssertionSetSubTermSetCons {t: Term} (p: exists a, In A a /\ AssertionSubTerm a t) : In (AssertionSetSubTermSet A) t.
+Definition AssertionMaximalSubTerm (a: Assertion) (t: Term) :=
+  exists (pos: list nat), (AssertionTermPosition a t pos /\ (~ (exists (t': Term) (pos': list nat), AssertionTermPosition a t' pos' /\ ProperPrefix pos' pos))).
 Inductive QSet: list nat  -> Ensemble (list nat) :=
 | EpsilonInQ (t: Term) (pos: list nat): In (QSet pos) []
 | PrefixInQ {t: Term} {pos pos': list nat} (prefixProof: ProperPrefix pos' pos) : In (QSet pos) pos'.
@@ -619,11 +629,11 @@ Inductive ady: TermSet -> AssertionSet -> Assertion -> Type :=
 | aproj_pair_right {S: TermSet} {A: AssertionSet} {t1 t2 u1 u2: Term} (p: ady S A (EqAssertion (PairTerm t1 t2) (PairTerm u1 u2)))  (pin: In (AbstractablePositionSetAssertion S (EqAssertion (PairTerm t1 t2) (PairTerm u1 u2))) [0;1]) : ady S A (EqAssertion t2 u2)
                                    
           
-| aproj_privenc_term {S: TermSet} {A: AssertionSet} {k1 k2: Name} {t1 t2: Term} (p: ady S A (EqAssertion (PrivEncTerm t1 k2) (PrivEncTerm t2 k2))) (pin: In (AbstractablePositionSetAssertion S (EqAssertion (PrivEncTerm t1 k2) (PrivEncTerm t2 k2))) [0;0]): ady S A (EqAssertion t1 t2)
-| aproj_privenc_key {S: TermSet} {A: AssertionSet} {k1 k2: Name} {t1 t2: Term} (p: ady S A (EqAssertion (PrivEncTerm t1 k2) (PrivEncTerm t2 k2))) (pin: In (AbstractablePositionSetAssertion S (EqAssertion (PrivEncTerm t1 k1) (PrivEncTerm t2 k2))) [0;1]): ady S A (EqAssertion (PrivKeyTerm k1) (PrivKeyTerm k2))                                                                                 
+| aproj_privenc_term {S: TermSet} {A: AssertionSet} {k1 k2: Name} {t1 t2: Term} (p: ady S A (EqAssertion (PrivEncTerm t1 k1) (PrivEncTerm t2 k2))) (pin: In (AbstractablePositionSetAssertion S (EqAssertion (PrivEncTerm t1 k1) (PrivEncTerm t2 k2))) [0;0]): ady S A (EqAssertion t1 t2)
+| aproj_privenc_key {S: TermSet} {A: AssertionSet} {k1 k2: Name} {t1 t2: Term} (p: ady S A (EqAssertion (PrivEncTerm t1 k1) (PrivEncTerm t2 k2))) (pin: In (AbstractablePositionSetAssertion S (EqAssertion (PrivEncTerm t1 k1) (PrivEncTerm t2 k2))) [0;1]): ady S A (EqAssertion (PrivKeyTerm k1) (PrivKeyTerm k2))                                                                                 
                                                                                 
-| aproj_pubenc_term {S: TermSet} {A: AssertionSet} {k1 k2: Name} {t1 t2: Term} (p: ady S A (EqAssertion (PubEncTerm t1 k2) (PubEncTerm t2 k2))) (pin: In (AbstractablePositionSetAssertion S (EqAssertion (PubEncTerm t1 k1) (PubEncTerm t2 k2)) ) [0;0]): ady S A (EqAssertion t1 t2)
-| aproj_pubenc_key {S: TermSet} {A: AssertionSet} {k1 k2: Name} {t1 t2: Term} (p: ady S A (EqAssertion (PubEncTerm t1 k2) (PubEncTerm t2 k2))) (pin: In (AbstractablePositionSetAssertion S (EqAssertion (PubEncTerm t1 k2) (PubEncTerm t2 k2))) [0;1]): ady S A (EqAssertion (PubKeyTerm k1) (PubKeyTerm k2))                        
+| aproj_pubenc_term {S: TermSet} {A: AssertionSet} {k1 k2: Name} {t1 t2: Term} (p: ady S A (EqAssertion (PubEncTerm t1 k1) (PubEncTerm t2 k2))) (pin: In (AbstractablePositionSetAssertion S (EqAssertion (PubEncTerm t1 k1) (PubEncTerm t2 k2)) ) [0;0]): ady S A (EqAssertion t1 t2)
+| aproj_pubenc_key {S: TermSet} {A: AssertionSet} {k1 k2: Name} {t1 t2: Term} (p: ady S A (EqAssertion (PubEncTerm t1 k1) (PubEncTerm t2 k2))) (pin: In (AbstractablePositionSetAssertion S (EqAssertion (PubEncTerm t1 k1) (PubEncTerm t2 k2))) [0;1]): ady S A (EqAssertion (PubKeyTerm k1) (PubKeyTerm k2))                        
 
 | aand_intro {S: TermSet} {A: AssertionSet} {a1 a2: Assertion} (p1: ady S A a1) (p2: ady S A a2): ady S A (AndAssertion a1 a2)
 | aand_elim_left {S: TermSet} {A: AssertionSet} {a1 a2: Assertion} (p: ady S A (AndAssertion a1 a2)): ady S A a1
@@ -676,11 +686,11 @@ Inductive eq_ady: TermSet -> AssertionSet -> Assertion -> Type :=
 | eq_aproj_pair_right {S: TermSet} {A: AssertionSet} {t1 t2 u1 u2: Term} (p: eq_ady S A (EqAssertion (PairTerm t1 t2) (PairTerm u1 u2)))  (pin: In (AbstractablePositionSetAssertion S (EqAssertion (PairTerm t1 t2) (PairTerm u1 u2))) [0;1]) : eq_ady S A (EqAssertion t2 u2)
                                    
           
-| eq_aproj_privenc_term {S: TermSet} {A: AssertionSet} {k1 k2: Name} {t1 t2: Term} (p: eq_ady S A (EqAssertion (PrivEncTerm t1 k2) (PrivEncTerm t2 k2))) (pin: In (AbstractablePositionSetAssertion S (EqAssertion (PrivEncTerm t1 k1) (PrivEncTerm t2 k2))) [0;0]): eq_ady S A (EqAssertion t1 t2)
-| eq_aproj_privenc_key {S: TermSet} {A: AssertionSet} {k1 k2: Name} {t1 t2: Term} (p: eq_ady S A (EqAssertion (PrivEncTerm t1 k2) (PrivEncTerm t2 k2))) (pin: In (AbstractablePositionSetAssertion S (EqAssertion (PrivEncTerm t1 k2) (PrivEncTerm t2 k2))) [0;1]): eq_ady S A (EqAssertion (PrivKeyTerm k1) (PrivKeyTerm k2))                                                                                 
+| eq_aproj_privenc_term {S: TermSet} {A: AssertionSet} {k1 k2: Name} {t1 t2: Term} (p: eq_ady S A (EqAssertion (PrivEncTerm t1 k1) (PrivEncTerm t2 k2))) (pin: In (AbstractablePositionSetAssertion S (EqAssertion (PrivEncTerm t1 k1) (PrivEncTerm t2 k2))) [0;0]): eq_ady S A (EqAssertion t1 t2)
+| eq_aproj_privenc_key {S: TermSet} {A: AssertionSet} {k1 k2: Name} {t1 t2: Term} (p: eq_ady S A (EqAssertion (PrivEncTerm t1 k1) (PrivEncTerm t2 k2))) (pin: In (AbstractablePositionSetAssertion S (EqAssertion (PrivEncTerm t1 k1) (PrivEncTerm t2 k2))) [0;1]): eq_ady S A (EqAssertion (PrivKeyTerm k1) (PrivKeyTerm k2))                                                                                 
                                                                                 
-| eq_aproj_pubenc_term {S: TermSet} {A: AssertionSet} {k1 k2: Name} {t1 t2: Term} (p: eq_ady S A (EqAssertion (PubEncTerm t1 k2) (PubEncTerm t2 k2))) (pin: In (AbstractablePositionSetAssertion S (EqAssertion (PubEncTerm t1 k1) (PubEncTerm t2 k2)) ) [0;0]): eq_ady S A (EqAssertion t1 t2)
-| eq_aproj_pubenc_key {S: TermSet} {A: AssertionSet} {k1 k2: Name} {t1 t2: Term} (p: eq_ady S A (EqAssertion (PubEncTerm t1 k2) (PubEncTerm t2 k2))) (pin: In (AbstractablePositionSetAssertion S (EqAssertion (PubEncTerm t1 k2) (PubEncTerm t2 k2))) [0;1]): eq_ady S A (EqAssertion (PubKeyTerm k1) (PubKeyTerm k2))                        
+| eq_aproj_pubenc_term {S: TermSet} {A: AssertionSet} {k1 k2: Name} {t1 t2: Term} (p: eq_ady S A (EqAssertion (PubEncTerm t1 k1) (PubEncTerm t2 k2))) (pin: In (AbstractablePositionSetAssertion S (EqAssertion (PubEncTerm t1 k1) (PubEncTerm t2 k2)) ) [0;0]): eq_ady S A (EqAssertion t1 t2)
+| eq_aproj_pubenc_key {S: TermSet} {A: AssertionSet} {k1 k2: Name} {t1 t2: Term} (p: eq_ady S A (EqAssertion (PubEncTerm t1 k1) (PubEncTerm t2 k2))) (pin: In (AbstractablePositionSetAssertion S (EqAssertion (PubEncTerm t1 k1) (PubEncTerm t2 k2))) [0;1]): eq_ady S A (EqAssertion (PubKeyTerm k1) (PubKeyTerm k2))                        
 
 
 | eq_asubst {S: TermSet} {A: AssertionSet} {t u: Term} {l: list Term} (proofMember: eq_ady S A (MemberAssertion t l)) (proofEq: eq_ady S A (EqAssertion t u)): eq_ady S A (MemberAssertion u l)
@@ -913,6 +923,197 @@ Proof.
         ).
 Qed.
 
+Inductive SubProofEqEq {S: TermSet} {A: AssertionSet} : forall {a1 a2: Assertion}, (eq_ady S A a1) -> (eq_ady S A a2) -> Prop:=
+
+| SubProofEqEqRefl {a: Assertion}
+    (pa: eq_ady S A a)
+  : SubProofEqEq pa pa
+| SubProofEqEqTrans {a1 a2 a3: Assertion}
+    {pa1: eq_ady S A a1}
+    {pa2: eq_ady S A a2}
+    {pa3: eq_ady S A a3}
+    (sub1: SubProofEqEq pa1 pa2)
+    (sub2: SubProofEqEq pa2 pa3)
+  : SubProofEqEq pa1 pa3
+| SubProofEqEq_eq_acons_pair_left {t1 t2 u1 u2: Term} (p1: eq_ady S A (EqAssertion t1 u1)) (p2: eq_ady S A (EqAssertion t2 u2)): SubProofEqEq p1 (eq_acons_pair p1 p2)
+| SubProofEqEq_eq_acons_pair_right {t1 t2 u1 u2: Term} (p1: eq_ady S A (EqAssertion t1 u1)) (p2: eq_ady S A (EqAssertion t2 u2)): SubProofEqEq p2 (eq_acons_pair p1 p2)
+
+| SubProofEqEq_eq_acons_privkey_term {t1 t2 : Term} {k1 k2 : Name}
+    (p1:eq_ady S A (EqAssertion t1 t2))
+    (p2: eq_ady S A (EqAssertion (PrivKeyTerm k1) (PrivKeyTerm k2)))
+  : SubProofEqEq p1 (eq_acons_privkey p1 p2)
+| SubProofEqEq_eq_acons_privkey_key {t1 t2 : Term} {k1 k2 : Name}
+    (p1:eq_ady S A (EqAssertion t1 t2))
+    (p2: eq_ady S A (EqAssertion (PrivKeyTerm k1) (PrivKeyTerm k2)))
+  : SubProofEqEq p2 (eq_acons_privkey p1 p2)
+
+                 
+| SubProofEqEq_eq_acons_pubkey_term {t1 t2 : Term} {k1 k2 : Name}
+    (p1:eq_ady S A (EqAssertion t1 t2))
+    (p2: eq_ady S A (EqAssertion (PubKeyTerm k1) (PubKeyTerm k2)))
+  : SubProofEqEq p1 (eq_acons_pubkey p1 p2)
+| SubProofEqEq_eq_acons_pubkey_key {t1 t2 : Term} {k1 k2 : Name}
+    (p1:eq_ady S A (EqAssertion t1 t2))
+    (p2: eq_ady S A (EqAssertion (PubKeyTerm k1) (PubKeyTerm k2)))
+  : SubProofEqEq p2 (eq_acons_pubkey p1 p2)
+
+| SubProofEqEq_eq_asym {t u: Term}
+    (p: eq_ady S A (EqAssertion t u))
+  : SubProofEqEq p (eq_asym p)
+
+| SubProofEqEq_eq_atrans  {a: Assertion} {t1 tk : Term}
+    {p: Eq_ValidTransEqPremiseList S A t1 tk}
+    {pa: eq_ady S A a}
+    (subp: SubProofEqTrans pa p)
+  : SubProofEqEq pa (eq_atrans p)
+
+| SubProofEqEq_eq_aproj_pair_left {t1 t2 u1 u2 : Term}
+    (p: eq_ady S A (EqAssertion (PairTerm t1 t2) (PairTerm u1 u2)))
+    (p': In
+           (AbstractablePositionSetAssertion S
+              (EqAssertion (PairTerm t1 t2) (PairTerm u1 u2)))
+           [0; 0])
+  : SubProofEqEq p (eq_aproj_pair_left p p')
+
+| SubProofEqEq_eq_aproj_pair_right  {t1 t2 u1 u2 : Term}
+    (p: eq_ady S A (EqAssertion (PairTerm t1 t2) (PairTerm u1 u2)))
+    (p': In
+           (AbstractablePositionSetAssertion S
+              (EqAssertion (PairTerm t1 t2) (PairTerm u1 u2)))
+           [0; 1]) :
+  SubProofEqEq p (eq_aproj_pair_right p p')
+
+| SubProofEqEq_eq_aproj_privenc_term   {k1 k2 : Name} {t1 t2 : Term}
+    (p: eq_ady S A (EqAssertion (PrivEncTerm t1 k1) (PrivEncTerm t2 k2))) 
+    (p': In
+           (AbstractablePositionSetAssertion S
+              (EqAssertion (PrivEncTerm t1 k1) (PrivEncTerm t2 k2)))
+           [0; 0]) 
+  : SubProofEqEq p (eq_aproj_privenc_term p p')
+
+| SubProofEqEq_eq_aproj_privenc_key  {k1 k2 : Name} {t1 t2 : Term}
+    (p: eq_ady S A (EqAssertion (PrivEncTerm t1 k1) (PrivEncTerm t2 k2)))
+    (p': In
+           (AbstractablePositionSetAssertion S
+              (EqAssertion (PrivEncTerm t1 k1) (PrivEncTerm t2 k2)))
+           [0; 1])
+  : SubProofEqEq p (eq_aproj_privenc_key p p')
+                 
+| SubProofEqEq_eq_aproj_pubenc_term   {k1 k2 : Name} {t1 t2 : Term}
+    (p: eq_ady S A (EqAssertion (PubEncTerm t1 k1) (PubEncTerm t2 k2))) 
+    (p': In
+           (AbstractablePositionSetAssertion S
+              (EqAssertion (PubEncTerm t1 k1) (PubEncTerm t2 k2)))
+           [0; 0]) 
+  : SubProofEqEq p (eq_aproj_pubenc_term p p')
+                 
+| SubProofEqEq_eq_aproj_pubenc_key  {k1 k2 : Name} {t1 t2 : Term}
+    (p: eq_ady S A (EqAssertion (PubEncTerm t1 k1) (PubEncTerm t2 k2)))
+    (p': In
+           (AbstractablePositionSetAssertion S
+              (EqAssertion (PubEncTerm t1 k1) (PubEncTerm t2 k2)))
+           [0; 1])
+  : SubProofEqEq p (eq_aproj_pubenc_key p p')
+| SubProofEqEq_eq_asubst_eq  {t u : Term} {l : list Term}
+    (pmem: eq_ady S A (MemberAssertion t l))
+    (peq: eq_ady S A (EqAssertion t u))
+  : SubProofEqEq peq (eq_asubst pmem peq)
+
+| SubProofEqEq_eq_asubst_mem  {t u : Term} {l : list Term}
+    (pmem: eq_ady S A (MemberAssertion t l))
+    (peq: eq_ady S A (EqAssertion t u))
+  : SubProofEqEq pmem (eq_asubst pmem peq)
+
+| SubProofEqEq_eq_aprom {t n : Term}
+    (p: eq_ady S A (MemberAssertion t [n]))
+  : SubProofEqEq p (eq_aprom p)
+
+| SubProofEqEq_eq_aint {a: Assertion} {t: Term} {l: list Term}
+    {pl: Eq_ValidIntPremiseList S A t l}
+    {pa: eq_ady S A a}
+    (subp: SubProofEqInt pa pl)
+  : SubProofEqEq pa (eq_aint pl)
+    
+
+| SubProofEqEq_eq_awk {t n : Term} {nlist : list Term}
+    (p: eq_ady S A (EqAssertion t n))
+    (p': List.In n nlist)
+    (p'l: Eq_DerivableTermsList S nlist)
+  : SubProofEqEq p (eq_awk p p' p'l)
+with SubProofEqInt {S: TermSet} {A: AssertionSet}: forall {a: Assertion} {t: Term} {tl: list Term}, eq_ady S A a -> Eq_ValidIntPremiseList S A t tl -> Type :=
+| SubProofEqInt_Eq_TwoLists_Left {a: Assertion} {t : Term} {l1 l2 intersect : list Term}
+    (pint: ListIntersection l1 l2 intersect)
+    (p1: eq_ady S A (MemberAssertion t l1))
+    (p2: eq_ady S A (MemberAssertion t l2))
+    {pa: eq_ady S A a}
+    (subp: SubProofEqEq pa p1)
+  : SubProofEqInt pa (Eq_TwoLists pint p1 p2)
+| SubProofEqInt_Eq_TwoLists_Right {a: Assertion} {t : Term} {l1 l2 intersect : list Term}
+    (pint: ListIntersection l1 l2 intersect)
+    (p1: eq_ady S A (MemberAssertion t l1))
+    (p2: eq_ady S A (MemberAssertion t l2))
+    {pa: eq_ady S A a}
+    (subp: SubProofEqEq pa p2)
+  : SubProofEqInt pa (Eq_TwoLists pint p1 p2)
+
+| SubProofEqInt_Eq_NewList {a: Assertion} {t : Term} {l1 intersect intersectl1 : list Term}
+    (pint: ListIntersection l1 intersect intersectl1)
+    (phead: eq_ady S A (MemberAssertion t l1))
+    (ptail: Eq_ValidIntPremiseList S A t intersect)
+    {pa: eq_ady S A a}
+    (subp: SubProofEqEq pa phead)
+  : SubProofEqInt pa (Eq_NewList pint phead ptail)
+with SubProofEqTrans {S: TermSet} {A: AssertionSet}: forall {a: Assertion} {t1 tn : Term}, eq_ady S A a -> Eq_ValidTransEqPremiseList S A t1 tn -> Type :=
+| SubProofEqTrans_Eq_TwoTrans_Left {a: Assertion} {t1 t2 t3 : Term}
+    (p1: eq_ady S A (EqAssertion t1 t2))
+    (p2: eq_ady S A (EqAssertion t2 t3))
+    {pa: eq_ady S A a}
+    (psub: SubProofEqEq pa p1)
+  : SubProofEqTrans pa (Eq_TwoTrans p1 p2)
+                    
+| SubProofEqTrans_Eq_TwoTrans_Right {a: Assertion} {t1 t2 t3 : Term}
+    (p1: eq_ady S A (EqAssertion t1 t2))
+    (p2: eq_ady S A (EqAssertion t2 t3))
+    {pa: eq_ady S A a}
+    (psub: SubProofEqEq pa p2)
+  : SubProofEqTrans pa (Eq_TwoTrans p1 p2)
+
+| SubProofEqTrans_Eq_TransTrans {a: Assertion} {t1 tk tk' : Term}
+    (phead: eq_ady S A (EqAssertion t1 tk))
+    (ptail: Eq_ValidTransEqPremiseList S A tk tk')
+    {pa: eq_ady S A a}
+    (psub: SubProofEqEq pa phead)
+  : SubProofEqTrans pa (Eq_TransTrans phead ptail).
+Compute True.
 
 
-Print isNormalEqAssertionProof.
+Inductive EqAdyProofTermSet {S: TermSet} {A: AssertionSet} {a: Assertion} (p: eq_ady S A a) : Ensemble Term :=
+| EqAdyProofTermSetCons {a': Assertion} {p': eq_ady S A a'} (pSUB: SubProofEqEq p' p) {t: Term} (pMAX: AssertionMaximalSubTerm a' t): In (EqAdyProofTermSet p) t.
+
+Inductive ListsAssertionSet (A: AssertionSet) : Ensemble (list Term) :=
+| ListsAssertionSetCons {l: list Term} (p: exists (t: Term), In A (MemberAssertion t l)) : In (ListsAssertionSet A) l.
+Inductive ListsProofSet {S: TermSet} {A: AssertionSet} {a: Assertion} (p: eq_ady S A a) : Ensemble (list Term) :=
+| ListsProofSetCons
+    (l: list Term)
+    (proof: exists (t: Term) (p': eq_ady S A (MemberAssertion t l)),
+        SubProofEqEq p' p)
+  : In (ListsProofSet p) l. 
+
+Inductive ListsTermSet (S: TermSet): Ensemble (list Term) :=
+| ListsTermSetCons {t: Term} (p: In S t) : In (ListsTermSet S) [t].
+Definition Substitution := Term -> Term.
+
+Definition Consistent (S: TermSet) (A: AssertionSet) :=
+  True.
+
+Definition EqAdyNormalisation := forall {S: TermSet} {A: AssertionSet} {a: Assertion} (p: eq_ady S A a),
+    Consistent S A -> exists (p': eq_ady S A a), isNormalEqAssertionProof p' = true.
+
+Definition EqAdySubTerm := forall {S: TermSet} {A: AssertionSet} {a: Assertion} (p: eq_ady S A a),
+    Consistent S A ->
+    isNormalEqAssertionProof p = true ->
+    let Y := Union (SubTermSet S) (AssertionSetSubTermSet (Union A (Singleton a))) in
+    Included (EqAdyProofTermSet p) Y /\ Included (ListsProofSet p)
+                                         (Union
+                                            (ListsAssertionSet (Union A (Singleton a)))
+                                            (ListsTermSet Y)).

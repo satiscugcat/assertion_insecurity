@@ -1,0 +1,23 @@
+#+title: Progress in Project
+#+author: satiscugcat
+
+* Overarching Progress : TODOs and DONEs
+** DONE Implement the definitions for the three notions on page 12 of the paper
+   CLOSED: [2025-04-08 Tue 23:34]
+*** DONE Implement SubProof relation
+    CLOSED: [2025-04-06 Sun 05:08]
+*** DONE Implement terms set definition
+    CLOSED: [2025-04-08 Tue 22:58]
+*** DONE Implement lists(TermSet) set definition
+    CLOSED: [2025-04-08 Tue 22:58]
+*** DONE Implement lists(proof) set definition
+    CLOSED: [2025-04-08 Tue 23:34]
+** DONE Normalisation and Subterm Property
+   CLOSED: [2025-04-09 Wed 12:07]
+
+* Daily Description of Work Done
+** April Week 2
+   + 06/04/2025 - Implementing SubProof definitions
+     * Managed to write down the definition for the subproof relation on \vert-_eq proofs.
+     * Entering a new line after this definition causes EMACS to lag, regardless of whether there is an ongoing coq process. The problem doesn't seem to occur if I include a dummy statement. But this is strange and I have no idea why this is happening. Thankfully there is a hacky workaround for now, since I don't want to switch from EMACS. It might help to modularise some of the definitions.
+   + 08-09/04/25 - Implementing the rest, mostly just straightforward work.
