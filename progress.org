@@ -26,3 +26,4 @@
    + 08-09/04/25 - Implementing the rest, mostly just straightforward work.
 ** April Week 3
   I've been sick and tired this week, mostly because of the change in weather, thus I haven't been able to work for the most part.
+  + 16-18/04/25 - Trying to formalise consistency, realised flaw in system while doing so. Currently the way I have defined terms with variables does not allow /names/ to be variables. Which is bad. I also realised the same is true with existentials. Currently thinking of how to resolve this. 
