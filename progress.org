@@ -13,7 +13,8 @@
 *** DONE Implement lists(proof) set definition
     CLOSED: [2025-04-08 Tue 23:34]
 ** TODO Normalisation and Subterm Property
-*** TODO Defining Consistency
+*** DONE Defining Consistency
+    CLOSED: [2025-04-30 Wed 01:56]
 *** DONE Formalising Normalisation and Subterm Property theorem definitions
     CLOSED: [2025-04-16 Wed 10:35]
 *** TODO Proving Normalisation
@@ -27,3 +28,10 @@
 ** April Week 3
   I've been sick and tired this week, mostly because of the change in weather, thus I haven't been able to work for the most part.
   + 16-18/04/25 - Trying to formalise consistency, realised flaw in system while doing so. Currently the way I have defined terms with variables does not allow /names/ to be variables. Which is bad. I also realised the same is true with existentials. Currently thinking of how to resolve this. 
+** April Week 4
+   Rewrote the code to fix the issue with variables, redefined the way existentials were being used to match the paper (ie. not using a function, but an assertion directly).
+   A new type Key was added, and Var has been written to be a disjoint union of KeyVar and TermVar. Encryption terms now use "Keys", which can be either public, private, or variable.
+
+   Added a notion of a substitution being "Concrete" too, which essentially states that after a substitution, there should be no free variables left in the result of that substitution.
+
+   Lastly, consistency has been formalised.
