@@ -131,7 +131,51 @@ Fixpoint isNormal {X: TermSet} {t: Term} (proof: dy X t) : bool :=
                                          | _ => true end)))
   end.
 
-
+Fixpoint dyProofNormaliser {X: TermSet} {t: Term} (proof: dy X t) {struct proof}: dy X t.
+Proof.
+  destruct proof.
+  - apply (ax inH).
+  - apply (pk (dyProofNormaliser _ _ proof)).
+  - dependent destruction proof.
+    + apply (splitL (ax inH)).
+    + apply (splitL (splitL (dyProofNormaliser _ _ proof))).
+    + apply (splitL (splitR (dyProofNormaliser _ _ proof))).
+    + apply (dyProofNormaliser _ _ proof1).
+    + apply (splitL (sdec (dyProofNormaliser _ _ proof1) (dyProofNormaliser _ _ proof2))).
+    + apply (splitL (adec (dyProofNormaliser _ _ proof1) (dyProofNormaliser _ _ proof2))).
+  - dependent destruction proof.
+    + apply (splitR (ax inH)).
+    + apply (splitR (splitL (dyProofNormaliser _ _ proof))).
+    + apply (splitR (splitR (dyProofNormaliser _ _ proof))).
+    + apply (dyProofNormaliser _ _ proof2).
+    + apply (splitR (sdec (dyProofNormaliser _ _ proof1) (dyProofNormaliser _ _ proof2))).
+    
+    + apply (splitR (adec (dyProofNormaliser _ _ proof1) (dyProofNormaliser _ _ proof2))).
+  -  apply (pair (dyProofNormaliser _ _ proof1) (dyProofNormaliser _ _ proof2)).
+  - dependent destruction proof1.
+    + apply (sdec (ax inH) (dyProofNormaliser _ _ proof2)).
+    + apply (sdec (splitL (dyProofNormaliser _ _ proof1)) (dyProofNormaliser _ _ proof2)).
+    + apply (sdec (splitR (dyProofNormaliser _ _ proof1)) (dyProofNormaliser _ _ proof2)).
+    +  apply (sdec (sdec (dyProofNormaliser _ _ proof1_1) (dyProofNormaliser _ _ proof1_2))
+                (dyProofNormaliser _ _ proof2)).
+    + apply (dyProofNormaliser _ _ proof1_1).
+    +  apply (sdec (adec (dyProofNormaliser _ _ proof1_1) (dyProofNormaliser _ _ proof1_2))
+                  (dyProofNormaliser _ _ proof2)).
+  - apply (senc (dyProofNormaliser _ _ proof1) (dyProofNormaliser _ _ proof2)).
+  - dependent destruction proof1.
+    + apply (adec (ax inH) (dyProofNormaliser _ _ proof2)).
+    + apply (adec (splitL (dyProofNormaliser _ _ proof1)) (dyProofNormaliser _ _ proof2)).
+    + apply (adec (splitR (dyProofNormaliser _ _ proof1)) (dyProofNormaliser _ _ proof2)).
+    +  apply (adec (sdec (dyProofNormaliser _ _ proof1_1) (dyProofNormaliser _ _ proof1_2))
+                (dyProofNormaliser _ _ proof2)).
+   
+    +  apply (adec (adec (dyProofNormaliser _ _ proof1_1) (dyProofNormaliser _ _ proof1_2))
+                (dyProofNormaliser _ _ proof2)).
+    + apply (dyProofNormaliser _ _ proof1_1).
+  -  apply (aenc (dyProofNormaliser _ _ proof1) (dyProofNormaliser _ _ proof2)).
+Defined.
+    
+  
 Theorem TermNormalisation :forall (X: TermSet) (t: Term) (proof: dy X t), exists (normal_proof: dy X t), (isNormal normal_proof) = true.
 Proof.
   intros X t proof. induction proof.
@@ -178,7 +222,20 @@ Proof.
   - destruct IHproof1. destruct IHproof2. exists (aenc x x0). simpl. rewrite -> H. rewrite -> H0. reflexivity.
 Qed.
 
-
+Theorem dyProofNormaliserCorrectness :forall (X: TermSet) (t: Term) (proof: dy X t), (isNormal (dyProofNormaliser proof)) = true.
+Proof.
+  intros X t proof. dependent induction proof.
+  - simpl. reflexivity.
+  - simpl. assumption.
+  - simpl. dependent destruction proof; simpl.
+    +  reflexivity.
+    + simpl. dependent destruction proof.
+      ++ simpl. reflexivity.
+      ++  simpl in IHproof. apply andb_true_iff in IHproof. destruct  IHproof as [IHproof []].  apply andb_true_iff in IHproof. destruct IHproof as [IHproof1 IHproof2]. apply andb_true_iff. split; auto. apply andb_true_iff. split.
+          {
+            admit.
+          }
+Admitted.
 Inductive SubTerm: Term -> Term -> Prop:=
 | SubTermRefl (t: Term) : SubTerm t t
 | SubTermTrans {t1 t2 t3: Term} (r1: SubTerm t1 t2) (r2: SubTerm t2 t3) : SubTerm t1 t3
@@ -781,8 +838,7 @@ Definition intPremiseSafe {S: TermSet} {A: AssertionSet} {t: Term} {l: list Term
     premises
     true.
 
-
-
+(*MAKES PROOFS VERY MESSY*)
 Fixpoint foldEqAdyProof {X: Type} {S: TermSet} {A: AssertionSet} {a: Assertion}  (f : forall (S': TermSet) (A': AssertionSet) (a': Assertion), eq_ady S' A' a' -> X -> X) (assertionProof: eq_ady S A a) (default: X) {struct assertionProof}: X.
 
 Proof.
@@ -861,78 +917,99 @@ Program Fixpoint foldEqAdyProof {X: Type} {S: TermSet} {A: AssertionSet} {a: Ass
 
 
  *)
-
-
-Definition isNormalEqAssertionProof {S: TermSet} {A: AssertionSet} {a: Assertion} (proof: eq_ady S A a): bool.
+Fixpoint containsCons {S: TermSet} {A: AssertionSet} {a: Assertion} (proof: eq_ady S A a): bool.
 Proof.
-  assert (matcherFun: forall (S': TermSet) (A': AssertionSet) (a': Assertion), eq_ady S' A' a' -> bool). {
-    clear. intros S' A' a' proof'.
-    destruct proof'.
-    - apply true.
-    - apply (andb (isNormal proof)
-               match proof with
-               | pair _ _ => false
-               | senc _ _ => false
-               | aenc _ _ => false
-               | pk _ => false
-               | _ => true
-               end ).
-    - apply true.
-    - apply true.
-    - apply (match proof' with | eq_aax _ _ => true | eq_aprom _ => true | _ => false end).
-    - apply (andb (negb (containsReflexiveTrans p)) (adjacentSafe p)).
-    - 
-      apply (
-          foldEqAdyProof
-            (fun (S'': TermSet) (A'': AssertionSet) (a'': Assertion) (proof: eq_ady S'' A'' a'') (thing: bool) => andb (negb (isCons proof)) thing)
-            proof'
-            true).
-    - apply (
-         foldEqAdyProof
-           (fun (S'': TermSet) (A'': AssertionSet) (a'': Assertion) (proof: eq_ady S'' A'' a'') (thing: bool) => andb (negb (isCons proof)) thing)
-           proof'
-           true).
-    - apply (
-          foldEqAdyProof
-            (fun (S'': TermSet) (A'': AssertionSet) (a'': Assertion) (proof: eq_ady S'' A'' a'') (thing: bool) => andb (negb (isCons proof)) thing)
-            proof'
-            true).
-    - apply (
-          foldEqAdyProof
-            (fun (S'': TermSet) (A'': AssertionSet) (a'': Assertion) (proof: eq_ady S'' A'' a'') (thing: bool) => andb (negb (isCons proof)) thing)
-            proof'
-               true).
-    - apply true.
-    - apply true.
-    - 
-      apply (foldrEqIntList
-               (fun _ _ _ _ proof thing =>
-                  andb
-                    match proof with
-                    | eq_aint _ => false
-                    | eq_awk _ _ _ => false
-                    | _ => true
-                        
-                    end
-                    thing)
-               premises
-               true
-            ).
-    - 
-      apply (foldrEqDerivableTermsList
-               (fun _ _ proof thing => andb (isNormal proof) thing)
-               proofValid
-               true
-            ).
-  }
-  Check @foldEqAdyProof.
-  apply (foldEqAdyProof
-           (fun _ _ _ proof' thing => andb (matcherFun _ _ _ proof') thing)
-           proof
-           true
-        ).
-Qed.
+    remember proof as p. destruct proof.
+  - apply false.
+  - apply false.
+  - apply true.
+  - apply true. 
+  - apply (containsCons _ _ _ proof).
+  - assert (recursiveVal: bool). {
+      dependent induction p0.
+      - apply (containsCons _ _ _ p1 || containsCons _ _ _ p2).
+      -  apply (containsCons _ _ _ phead || (IHp0 (eq_atrans p0) (eq_refl (eq_atrans p0)))).
+    }
 
+    apply recursiveVal.
+  - 
+    apply (containsCons _ _ _ proof).
+  - apply (containsCons _ _ _ proof).
+  - apply (containsCons _ _ _ proof).
+  - apply (containsCons _ _ _ proof).
+  - apply (containsCons _ _ _ proof1 || containsCons _ _ _ proof2).
+  - apply (containsCons _ _ _ proof).
+  - assert (recursiveVal: bool). {
+      dependent induction premises.
+      - apply (containsCons _ _ _ proof1 || containsCons _ _ _ proof2).
+      -  apply (containsCons _ _ _ proof1 || IHpremises (eq_aint premises) (eq_refl _)).
+    }
+
+    apply recursiveVal.
+  - 
+    apply (containsCons _ _ _ proof).
+
+Defined.
+
+Fixpoint isNormalEqAssertionProof {S: TermSet} {A: AssertionSet} {a: Assertion} (proof: eq_ady S A a): bool.
+Proof.
+  destruct proof.
+  - apply true.
+  - apply (andb (isNormal proof)
+             match proof with
+             | pair _ _ => false
+             | senc _ _ => false
+             | aenc _ _ => false
+             | pk _ => false
+             | _ => true
+             end ).
+  - apply ((isNormalEqAssertionProof _ _ _ proof1) && (isNormalEqAssertionProof _ _ _ proof2)).
+  - apply ((isNormalEqAssertionProof _ _ _ proof1) && (isNormalEqAssertionProof _ _ _ proof2)).
+  - apply ((match proof with | eq_aax _ _ => true | eq_aprom _ => true | _ => false end) && (isNormalEqAssertionProof _ _ _ proof)).
+  - assert (recursiveVal: bool). {
+      dependent induction p.
+      - apply (isNormalEqAssertionProof _ _ _ p1 && isNormalEqAssertionProof _ _ _ p2).
+      -  apply (isNormalEqAssertionProof _ _ _ phead && IHp).
+    }
+
+    apply ((negb (containsReflexiveTrans p)) && (adjacentSafe p) && recursiveVal).
+  - 
+    apply (negb (containsCons proof) && isNormalEqAssertionProof _ _ _ proof).
+  - apply (negb (containsCons proof) && isNormalEqAssertionProof _ _ _ proof).
+  - apply (negb (containsCons proof) && isNormalEqAssertionProof _ _ _ proof).
+  - apply (negb (containsCons proof) && isNormalEqAssertionProof _ _ _ proof).
+  - apply (isNormalEqAssertionProof _ _ _ proof1 && isNormalEqAssertionProof _ _ _ proof2).
+  - apply (isNormalEqAssertionProof _ _ _ proof).
+  - assert (recursiveVal: bool). {
+      dependent induction premises.
+      - apply (isNormalEqAssertionProof _ _ _ proof1 && isNormalEqAssertionProof _ _ _ proof2).
+      -  apply (isNormalEqAssertionProof _ _ _ proof1 && IHpremises).
+    }
+    apply (foldrEqIntList
+             (fun _ _ _ _ proof thing =>
+                andb
+                  match proof with
+                  | eq_aint _ => false
+                  | eq_awk _ _ _ => false
+                  | _ => true
+                          
+                  end
+                  thing)
+             premises
+             true
+
+             && recursiveVal
+          ).
+  - 
+    apply (foldrEqDerivableTermsList
+             (fun _ _ proof thing => andb (isNormal proof) thing)
+             proofValid
+             true
+           && isNormalEqAssertionProof _ _ _ proof).
+
+Defined.
+
+Print isNormalEqAssertionProof.
 Inductive SubProofEqEq {S: TermSet} {A: AssertionSet} : forall {a1 a2: Assertion}, (eq_ady S A a1) -> (eq_ady S A a2) -> Prop:=
 
 | SubProofEqEqRefl {a: Assertion}
@@ -1113,9 +1190,9 @@ Fixpoint apply_substition (s: Substitution) (t: Term) : Term:=
 .
 Definition Consistent (S: TermSet) (A: AssertionSet) :=
   exists(s: Substitution),
-    ConcreteSubstitution s /\
-      (forall t1 t2, eq_ady S A (EqAssertion t1 t2) -> (apply_substition s t1) = (apply_substition s t2)) /\
-      (forall t tlist, eq_ady S A (MemberAssertion t tlist) -> List.In (apply_substition s t) tlist).
+    ConcreteSubstitution s ->
+      ((forall t1 t2, eq_ady S A (EqAssertion t1 t2) -> (apply_substition s t1) = (apply_substition s t2)) /\
+      (forall t tlist, eq_ady S A (MemberAssertion t tlist) -> List.In (apply_substition s t) tlist)).
 
 Definition EqAdyNormalisation := forall {S: TermSet} {A: AssertionSet} {a: Assertion} (p: eq_ady S A a),
     Consistent S A -> exists (p': eq_ady S A a), isNormalEqAssertionProof p' = true.
@@ -1128,3 +1205,40 @@ Definition EqAdySubTerm := forall {S: TermSet} {A: AssertionSet} {a: Assertion} 
                                          (Union
                                             (ListsAssertionSet (Union A (Singleton a)))
                                             (ListsTermSet Y)).
+
+Fixpoint proofTransformation {S: TermSet} {A: AssertionSet} {a: Assertion} (proof: eq_ady S A a) : eq_ady S A a.
+Proof.
+  remember proof as p. dependent destruction proof.
+  - apply p.
+  - dependent destruction proof.
+    +
+Admitted.
+
+
+Theorem EqNormal: EqAdyNormalisation.
+Proof.
+  unfold EqAdyNormalisation.
+  intros. remember p as p'. dependent induction p.
+  - exists p'. subst. unfold isNormalEqAssertionProof; unfold foldEqAdyProof. simpl. reflexivity.
+  - remember proof as proof'. dependent destruction proof; try (exists p'; subst p'; subst proof'; unfold isNormalEqAssertionProof; simpl; reflexivity).
+    + admit.
+    + admit.
+    + admit.
+    + admit.
+    + admit.
+    + admit.
+    + admit.
+    + admit.
+      
+  - specialize (IHp1 H p1 (eq_refl p1)); specialize (IHp2 H p2 (eq_refl p2)).
+    destruct IHp1 as [p1' H1]. destruct IHp2 as [p2' H2]. exists (eq_acons_pair p1' p2'). simpl. rewrite -> H1. rewrite -> H2. simpl. reflexivity.
+
+  - specialize (IHp1 H p1 (eq_refl p1)); specialize (IHp2 H p2 (eq_refl p2)).
+    destruct IHp1 as [p1' H1]. destruct IHp2 as [p2' H2]. exists (eq_acons_enc p1' p2'). simpl. rewrite -> H2. rewrite -> H1. simpl. reflexivity.
+
+  - specialize (IHp H p (eq_refl p)). clear Heqp' p. clear p'. destruct IHp as [p IHp]. remember p as p'. dependent destruction p'.
+    + exists (eq_asym p).  subst p. unfold isNormalEqAssertionProof; unfold foldEqAdyProof. simpl. reflexivity.
+    + exists p. subst p. assumption.
+    + simpl in IHp. apply andb_true_iff in IHp. destruct IHp. exists (eq_asym p). simpl. isNormalEqAssertionProof in IHp.  unfold foldEqAdyProof in IHp. simpl in IHp. 
+    
+    Admitted.

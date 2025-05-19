@@ -18,7 +18,12 @@
 *** DONE Formalising Normalisation and Subterm Property theorem definitions
     CLOSED: [2025-04-16 Wed 10:35]
 *** TODO Proving Normalisation
-*** TODO Procing Subterm Property
+**** DONE Defining Rule Transformation Function for dy proofs
+     CLOSED: [2025-05-19 Mon 09:18]
+**** TODO Proving its Correctness
+**** TODO Defining Rule Transformation Function for eq ady proofs
+**** TODO Proving its Correctness (/ proving correctness using it)
+*** TODO Proving Subterm Property
 * Daily Description of Work Done
 ** April Week 2
    + 06/04/2025 - Implementing SubProof definitions
@@ -35,3 +40,8 @@
    Added a notion of a substitution being "Concrete" too, which essentially states that after a substitution, there should be no free variables left in the result of that substitution.
 
    Lastly, consistency has been formalised.
+
+** May Week 2
+   Rewrote the code to not use "foldEqAdyProof", as that was making the proof very complicated, will be trying to phase out all other general "fold"s too.
+
+   Currently trying to write down the rule transformation function, since as far as I could understand, it is recursively called to transform the whole proof into an appropriate form. To do this I'm also trying to write and prove correct a function that does this for dy proofs.
